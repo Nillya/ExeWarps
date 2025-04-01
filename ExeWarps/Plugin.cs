@@ -24,7 +24,7 @@ namespace AdvancedWarps
                 TranslationList translationList = new TranslationList();
                 translationList.Add("warp_null", "Warp with this name not found. Color=red");
                 translationList.Add("warp_teleport_ok", "You will be teleported to warp: [{0}] in: [{1}sec]. Color=yellow");
-                translationList.Add("warp_successfully_teleported", "You have been successfully teleported to the warp. Color=yellow");
+                translationList.Add("warp_successfully_teleported", "You have been successfully teleported to the warp. Color=green");
                 translationList.Add("warp_create_ok", "You have successfully created a warp named: [{0}]. Color=yellow");
                 translationList.Add("warp_delete_ok", "You have successfully deleted the warp named: [{0}]. Color=yellow");
                 translationList.Add("warp_replace_ok", "Warps [{0}] and [{1}] have been successfully swapped. Color=yellow");
@@ -35,6 +35,12 @@ namespace AdvancedWarps
                 translationList.Add("warp_cancel_disconnect", "Teleportation canceled due to disconnection. Color=red");
                 translationList.Add("warp_cancel_death", "Teleportation canceled due to death. Color=red");
                 translationList.Add("already_delay", "You are already waiting to be warped. Color=red");
+                translationList.Add("build_restricted", "Building is prohibited near warps! Color=red");
+                translationList.Add("invalid_subwarp_id", "Invalid sub-warp ID! Color=red");
+                translationList.Add("subwarp_not_found", "Sub-warp with ID [{0}] not found! Color=red");
+                translationList.Add("subwarp_delete_ok", "Sub-warp with ID [{1}] removed from warp [{0}]. Color=yellow");
+                translationList.Add("warp_same_swap", "Cannot swap a warp with itself! Color=red");
+                translationList.Add("invalid_position", "Invalid position specified! Color=red");
                 return translationList;
             }
         }
@@ -65,7 +71,6 @@ namespace AdvancedWarps
             EffectManager.onEffectButtonClicked -= OnEffectButtonClicked;
         }
 
-        // В Plugin.cs, метод OnEffectButtonClicked
         private void OnEffectButtonClicked(Player player, string buttonName)
         {
             UnturnedPlayer unturnedPlayer = UnturnedPlayer.FromPlayer(player);
@@ -139,6 +144,11 @@ namespace AdvancedWarps
                         if (Vector3.Distance((Vector3)subWarp.Position, point) <= Configuration.Instance.NoBuildRadius)
                         {
                             shouldAllow = false;
+                            UnturnedPlayer player = UnturnedPlayer.FromCSteamID(new CSteamID(owner));
+                            if (player != null)
+                            {
+                                new Transelation("build_restricted", Array.Empty<object>()).execute(player);
+                            }
                             return;
                         }
                     }
@@ -157,6 +167,11 @@ namespace AdvancedWarps
                         if (Vector3.Distance((Vector3)subWarp.Position, point) <= Configuration.Instance.NoBuildRadius)
                         {
                             shouldAllow = false;
+                            UnturnedPlayer player = UnturnedPlayer.FromCSteamID(new CSteamID(owner));
+                            if (player != null)
+                            {
+                                new Transelation("build_restricted", Array.Empty<object>()).execute(player);
+                            }
                             return;
                         }
                     }
