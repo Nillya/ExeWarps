@@ -1,0 +1,85 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <ProjectGuid>{D92E9012-F9FE-430E-9C54-88D10428D026}</ProjectGuid>
+    <ProjectTypeGuids>{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <OutputType>Library</OutputType>
+    <LangVersion>7.3</LangVersion>
+    <AssemblyName>ExeWarps</AssemblyName>
+    <TargetFrameworkIdentifier>.NETFramework</TargetFrameworkIdentifier>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <WarningLevel>4</WarningLevel>
+    <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+    <TargetFrameworkProfile />
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Platform)' == 'AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <Prefer32Bit>false</Prefer32Bit>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+    <OutputPath>bin\Debug\</OutputPath>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+    <OutputPath>bin\Release\</OutputPath>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+  </PropertyGroup>
+  <PropertyGroup>
+    <RootNamespace>ExeWarps</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>E:\My PC\Games\Steam\steamapps\common\U3DS\Servers\Def Plug\Rocket\Libraries\Assembly-CSharp.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="com.rlabrecque.steamworks.net">
+      <HintPath>E:\My PC\Games\Steam\steamapps\common\U3DS\Servers\Def Plug\Rocket\Libraries\com.rlabrecque.steamworks.net.dll</HintPath>
+    </Reference>
+    <Reference Include="Rocket.Core">
+      <HintPath>E:\My PC\Games\Steam\steamapps\common\U3DS\Servers\Def Plug\Rocket\Libraries\Rocket.Core.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Rocket.API">
+      <HintPath>E:\My PC\Games\Steam\steamapps\common\U3DS\Servers\Def Plug\Rocket\Libraries\Rocket.API.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="SDG.NetTransport">
+      <HintPath>E:\My PC\Games\Steam\steamapps\common\U3DS\Servers\Def Plug\Rocket\Libraries\SDG.NetTransport.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="UnityEngine">
+      <HintPath>E:\My PC\Games\Steam\steamapps\common\U3DS\Servers\Def Plug\Rocket\Libraries\UnityEngine.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>E:\My PC\Games\Steam\steamapps\common\U3DS\Servers\Def Plug\Rocket\Libraries\UnityEngine.CoreModule.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Rocket.Unturned">
+      <HintPath>E:\My PC\Games\Steam\steamapps\common\U3DS\Servers\Def Plug\Rocket\Libraries\Rocket.Unturned.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="System.Xml" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Core" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Configuration.cs" />
+    <Compile Include="CommandWarp.cs" />
+    <Compile Include="PlayerComponent.cs" />
+    <Compile Include="Transelation.cs" />
+    <Compile Include="SerializableVector3.cs" />
+    <Compile Include="Warp.cs" />
+    <Compile Include="Plugin.cs" />
+    <Compile Include="CommandWarps.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>
