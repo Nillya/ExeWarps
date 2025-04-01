@@ -65,6 +65,7 @@ namespace AdvancedWarps
             EffectManager.onEffectButtonClicked -= OnEffectButtonClicked;
         }
 
+        // В Plugin.cs, метод OnEffectButtonClicked
         private void OnEffectButtonClicked(Player player, string buttonName)
         {
             UnturnedPlayer unturnedPlayer = UnturnedPlayer.FromPlayer(player);
@@ -99,13 +100,18 @@ namespace AdvancedWarps
 
                         Plugin.Instance.Warping.Add(unturnedPlayer.CSteamID);
                         new Transelation("warp_teleport_ok", new object[] { warp.Name, Plugin.Instance.Configuration.Instance.DelayTeleportToWarp }).execute(unturnedPlayer);
+
+                        // Закрываем UI и убираем blur при выборе варпа
+                        EffectManager.askEffectClearByID(45882, unturnedPlayer.Player.channel.owner.transportConnection);
+                        unturnedPlayer.Player.setPluginWidgetFlag(EPluginWidgetFlags.Modal, false);
                     }
                 }
             }
             else if (buttonName == "Close_warp")
             {
-                // Close the UI
+                // Закрываем UI и убираем blur при нажатии кнопки Close
                 EffectManager.askEffectClearByID(45882, unturnedPlayer.Player.channel.owner.transportConnection);
+                unturnedPlayer.Player.setPluginWidgetFlag(EPluginWidgetFlags.Modal, false);
             }
         }
 

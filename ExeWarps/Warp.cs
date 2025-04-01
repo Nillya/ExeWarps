@@ -8,11 +8,15 @@ namespace AdvancedWarps
         [XmlAttribute]
         public string Name;
 
+        [XmlAttribute]
+        public int WarpId;
+
         public List<SubWarp> SubWarps;
 
-        public Warp(string name)
+        public Warp(string name, int warpId)
         {
             this.Name = name;
+            this.WarpId = warpId;
             this.SubWarps = new List<SubWarp>();
         }
 

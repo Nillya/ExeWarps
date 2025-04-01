@@ -1,0 +1,667 @@
+--- D:\Desktop files--------------------\----\Unturned----------\Сервер\PLG\MY\Joskiye ne moi\ExeWarps\ExeWarps net 4.5\ExeWarps\CommandWarp.cs ---
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using Rocket.API;
+using Rocket.Unturned.Player;
+using UnityEngine;
+
+namespace AdvancedWarps
+{
+    public class CommandWarp : IRocketCommand
+    {
+        public AllowedCaller AllowedCaller => AllowedCaller.Player;
+        public string Name => "warp";
+        public string Help => "Warp command for teleportation and management.";
+        public string Syntax => "<add|addpd|replace|rem> [warp_name] [second_warp_name]";
+        public List<string> Aliases => new List<string>();
+        public List<string> Permissions => new List<string> { "warp" };
+
+        public void Execute(IRocketPlayer caller, string[] command)
+        {
+            UnturnedPlayer player = (UnturnedPlayer)caller;
+            PlayerComponent component = player.GetComponent<PlayerComponent>();
+
+            if (command.Length == 0)
+            {
+                new Transelation("warp_null", Array.Empty<object>()).execute(player);
+                return;
+            }
+
+            if (command[0].ToLower() == "add" && command.Length >= 2 && player.IsAdmin)
+            {
+                // Add a new warp
+                string warpName = command[1];
+                if (Plugin.Instance.Configuration.Instance.Warps.Any(w => w.Name.ToLower() == warpName.ToLower()))
+                {
+                    new Transelation("warp_create_ok", new object[] { warpName }).execute(player);
+                    return;
+                }
+
+                Warp newWarp = new Warp(warpName);
+                Plugin.Instance.Configuration.Instance.Warps.Add(newWarp);
+                Plugin.Instance.Configuration.Save();
+                new Transelation("warp_create_ok", new object[] { warpName }).execute(player);
+            }
+            else if (command[0].ToLower() == "addpd" && command.Length >= 2 && player.IsAdmin)
+            {
+                // Add a sub-warp to an existing warp
+                string warpName = command[1];
+                Warp warp = Plugin.Instance.Configuration.Instance.Warps.Find(w => w.Name.ToLower() == warpName.ToLower());
+                if (warp == null)
+                {
+                    new Transelation("warp_null", Array.Empty<object>()).execute(player);
+                    return;
+                }
+
+                int newSubWarpId = warp.SubWarps.Count + 1;
+                warp.SubWarps.Add(new SubWarp(newSubWarpId, new SerializableVector3(player.Position.x, player.Position.y, player.Position.z)));
+                Plugin.Instance.Configuration.Save();
+                new Transelation("warp_add_subwarp_ok", new object[] { warpName, newSubWarpId }).execute(player);
+            }
+            else if (command[0].ToLower() == "replace" && command.Length >= 3 && player.IsAdmin)
+            {
+                // Swap two warps in the list
+                string warpName1 = command[1];
+                string warpName2 = command[2];
+                int index1 = Plugin.Instance.Configuration.Instance.Warps.FindIndex(w => w.Name.ToLower() == warpName1.ToLower());
+                int index2 = Plugin.Instance.Configuration.Instance.Warps.FindIndex(w => w.Name.ToLower() == warpName2.ToLower());
+
+                if (index1 == -1 || index2 == -1)
+                {
+                    new Transelation("warp_null", Array.Empty<object>()).execute(player);
+                    return;
+                }
+
+                Warp temp = Plugin.Instance.Configuration.Instance.Warps[index1];
+                Plugin.Instance.Configuration.Instance.Warps[index1] = Plugin.Instance.Configuration.Instance.Warps[index2];
+                Plugin.Instance.Configuration.Instance.Warps[index2] = temp;
+                Plugin.Instance.Configuration.Save();
+                new Transelation("warp_replace_ok", new object[] { warpName1, warpName2 }).execute(player);
+            }
+            else if (command[0].ToLower() == "rem" && command.Length >= 2 && player.IsAdmin)
+            {
+                // Remove a warp and its sub-warps
+                string warpName = command[1];
+                Warp warp = Plugin.Instance.Configuration.Instance.Warps.Find(w => w.Name.ToLower() == warpName.ToLower());
+                if (warp == null)
+                {
+                    new Transelation("warp_null", Array.Empty<object>()).execute(player);
+                    return;
+                }
+
+                Plugin.Instance.Configuration.Instance.Warps.Remove(warp);
+                Plugin.Instance.Configuration.Save();
+                new Transelation("warp_delete_ok", new object[] { warpName }).execute(player);
+            }
+            else
+            {
+                // Teleport to a warp (random sub-warp)
+                string warpName = command[0];
+                Warp warp = Plugin.Instance.Configuration.Instance.Warps.Find(w => w.Name.ToLower() == warpName.ToLower());
+                if (warp == null || warp.SubWarps.Count == 0)
+                {
+                    new Transelation("warp_null", Array.Empty<object>()).execute(player);
+                    return;
+                }
+
+                if (Plugin.Instance.Warping.Contains(player.CSteamID))
+                {
+                    new Transelation("already_delay", Array.Empty<object>()).execute(player);
+                    return;
+                }
+
+                component.CurrentWarp = warp;
+                component.TimeTeleportWarp = DateTime.Now;
+                component.InitialPosition = new SerializableVector3(player.Position.x, player.Position.y, player.Position.z);
+                component.IsTeleporting = true;
+
+                Plugin.Instance.Warping.Add(player.CSteamID);
+                new Transelation("warp_teleport_ok", new object[] { warp.Name, Plugin.Instance.Configuration.Instance.DelayTeleportToWarp }).execute(player);
+            }
+        }
+    }
+}
+
+--- D:\Desktop files--------------------\----\Unturned----------\Сервер\PLG\MY\Joskiye ne moi\ExeWarps\ExeWarps net 4.5\ExeWarps\CommandWarps.cs ---
+﻿using Rocket.API;
+using Rocket.Unturned.Player;
+using SDG.Unturned;
+using System.Collections.Generic;
+
+namespace AdvancedWarps
+{
+    public class CommandWarps : IRocketCommand
+    {
+        public AllowedCaller AllowedCaller => AllowedCaller.Player;
+        public string Name => "warps";
+        public string Help => "Opens the warp selection UI.";
+        public string Syntax => "";
+        public List<string> Aliases => new List<string>();
+        public List<string> Permissions => new List<string> { "warps" };
+
+        public void Execute(IRocketPlayer caller, string[] command)
+        {
+            UnturnedPlayer player = (UnturnedPlayer)caller;
+
+            // Open UI with effect ID 45882
+            EffectManager.sendUIEffect(45882, short.MaxValue, player.Player.channel.owner.transportConnection, true);
+
+            // Update UI with warp names (up to 10 warps)
+            for (int i = 0; i < 10; i++)
+            {
+                string warpName = i < Plugin.Instance.Configuration.Instance.Warps.Count ? Plugin.Instance.Configuration.Instance.Warps[i].Name : "";
+                EffectManager.sendUIEffectText(short.MaxValue, player.Player.channel.owner.transportConnection, true, $"Warp_loc_text_{i + 1}", warpName);
+            }
+        }
+    }
+}
+
+--- D:\Desktop files--------------------\----\Unturned----------\Сервер\PLG\MY\Joskiye ne moi\ExeWarps\ExeWarps net 4.5\ExeWarps\Configuration.cs ---
+﻿using System.Collections.Generic;
+using Rocket.API;
+
+namespace AdvancedWarps
+{
+    public class Configuration : IDefaultable, IRocketPluginConfiguration
+    {
+        public int DelayTeleportToWarp;
+        public bool CancelOnDamage;
+        public bool CancelOnMovement;
+        public float MovementCancelRadius;
+        public bool CancelOnShooting;
+        public float NoBuildRadius;
+        public double WarpProtect;
+        public List<Warp> Warps;
+
+        public void LoadDefaults()
+        {
+            DelayTeleportToWarp = 10;
+            CancelOnDamage = true;
+            CancelOnMovement = true;
+            MovementCancelRadius = 2f;
+            CancelOnShooting = true;
+            NoBuildRadius = 5f;
+            WarpProtect = 3.5;
+            Warps = new List<Warp>();
+        }
+    }
+}
+
+--- D:\Desktop files--------------------\----\Unturned----------\Сервер\PLG\MY\Joskiye ne moi\ExeWarps\ExeWarps net 4.5\ExeWarps\PlayerComponent.cs ---
+﻿using Rocket.Unturned.Player;
+using SDG.Unturned;
+using UnityEngine;
+using System;
+
+namespace AdvancedWarps
+{
+    public class PlayerComponent : UnturnedPlayerComponent
+    {
+        public Warp CurrentWarp = null;
+        public DateTime TimeTeleportWarp = DateTime.Now;
+        public SerializableVector3 InitialPosition;
+        public bool IsTeleporting = false;
+
+        public void CancelTeleport(string messageKey)
+        {
+            if (!string.IsNullOrEmpty(messageKey))
+            {
+                new Transelation(messageKey, Array.Empty<object>()).execute(base.Player);
+            }
+            Plugin.Instance.Warping.Remove(base.Player.CSteamID);
+            CurrentWarp = null;
+            IsTeleporting = false;
+        }
+
+        public void FixedUpdate()
+        {
+            if (CurrentWarp == null || !IsTeleporting) return;
+
+            // Check movement cancellation
+            if (Plugin.Instance.Configuration.Instance.CancelOnMovement)
+            {
+                float distance = Vector3.Distance(base.Player.Position, (Vector3)InitialPosition);
+                if (distance > Plugin.Instance.Configuration.Instance.MovementCancelRadius)
+                {
+                    CancelTeleport("warp_cancel_movement");
+                    return;
+                }
+            }
+
+            // Check if teleport delay is over
+            if ((DateTime.Now - TimeTeleportWarp).TotalSeconds >= Plugin.Instance.Configuration.Instance.DelayTeleportToWarp)
+            {
+                // Select a random sub-warp
+                if (CurrentWarp.SubWarps.Count > 0)
+                {
+                    int randomIndex = UnityEngine.Random.Range(0, CurrentWarp.SubWarps.Count);
+                    SubWarp subWarp = CurrentWarp.SubWarps[randomIndex];
+                    base.Player.Teleport((Vector3)subWarp.Position, base.Player.Rotation);
+                    new Transelation("warp_successfully_teleported", Array.Empty<object>()).execute(base.Player);
+                    Plugin.Instance.AfterWarp(base.Player);
+                }
+                CurrentWarp = null;
+                IsTeleporting = false;
+            }
+        }
+    }
+}
+
+--- D:\Desktop files--------------------\----\Unturned----------\Сервер\PLG\MY\Joskiye ne moi\ExeWarps\ExeWarps net 4.5\ExeWarps\Plugin.cs ---
+﻿using System;
+using System.Collections.Generic;
+using Rocket.API.Collections;
+using Rocket.Core.Plugins;
+using Rocket.Unturned;
+using Rocket.Unturned.Events;
+using Rocket.Unturned.Player;
+using SDG.Unturned;
+using Steamworks;
+using UnityEngine;
+
+namespace AdvancedWarps
+{
+    public class Plugin : RocketPlugin<Configuration>
+    {
+        public static Plugin Instance;
+        public List<CSteamID> Warping;
+        private Dictionary<CSteamID, DateTime> _warpProtect;
+
+        public override TranslationList DefaultTranslations
+        {
+            get
+            {
+                TranslationList translationList = new TranslationList();
+                translationList.Add("warp_null", "Warp with this name not found. Color=red");
+                translationList.Add("warp_teleport_ok", "You will be teleported to warp: [{0}] in: [{1}sec]. Color=yellow");
+                translationList.Add("warp_successfully_teleported", "You have been successfully teleported to the warp. Color=yellow");
+                translationList.Add("warp_create_ok", "You have successfully created a warp named: [{0}]. Color=yellow");
+                translationList.Add("warp_delete_ok", "You have successfully deleted the warp named: [{0}]. Color=yellow");
+                translationList.Add("warp_replace_ok", "Warps [{0}] and [{1}] have been successfully swapped. Color=yellow");
+                translationList.Add("warp_add_subwarp_ok", "Sub-warp added to warp [{0}] with ID: [{1}]. Color=yellow");
+                translationList.Add("warp_cancel_damage", "Teleportation canceled due to damage. Color=red");
+                translationList.Add("warp_cancel_movement", "Teleportation canceled due to movement. Color=red");
+                translationList.Add("warp_cancel_shooting", "Teleportation canceled due to shooting. Color=red");
+                translationList.Add("warp_cancel_disconnect", "Teleportation canceled due to disconnection. Color=red");
+                translationList.Add("warp_cancel_death", "Teleportation canceled due to death. Color=red");
+                translationList.Add("already_delay", "You are already waiting to be warped. Color=red");
+                return translationList;
+            }
+        }
+
+        protected override void Load()
+        {
+            Instance = this;
+            Warping = new List<CSteamID>();
+            _warpProtect = new Dictionary<CSteamID, DateTime>();
+
+            // Subscribe to events
+            U.Events.OnPlayerDisconnected += EventsOnPlayerDisconnected;
+            BarricadeManager.onDeployBarricadeRequested = (DeployBarricadeRequestHandler)Delegate.Combine(BarricadeManager.onDeployBarricadeRequested, new DeployBarricadeRequestHandler(OnDeployBarricadeRequested));
+            StructureManager.onDeployStructureRequested = (DeployStructureRequestHandler)Delegate.Combine(StructureManager.onDeployStructureRequested, new DeployStructureRequestHandler(OnDeployStructureRequested));
+            DamageTool.damagePlayerRequested += DamageToolOnDamagePlayerRequested;
+            SteamChannel.onTriggerSend = (TriggerSend)Delegate.Combine(SteamChannel.onTriggerSend, new TriggerSend(OnTriggerSend));
+            EffectManager.onEffectButtonClicked += OnEffectButtonClicked;
+        }
+
+        protected override void Unload()
+        {
+            // Unsubscribe from events
+            U.Events.OnPlayerDisconnected -= EventsOnPlayerDisconnected;
+            BarricadeManager.onDeployBarricadeRequested = (DeployBarricadeRequestHandler)Delegate.Remove(BarricadeManager.onDeployBarricadeRequested, new DeployBarricadeRequestHandler(OnDeployBarricadeRequested));
+            StructureManager.onDeployStructureRequested = (DeployStructureRequestHandler)Delegate.Remove(StructureManager.onDeployStructureRequested, new DeployStructureRequestHandler(OnDeployStructureRequested));
+            DamageTool.damagePlayerRequested -= DamageToolOnDamagePlayerRequested;
+            SteamChannel.onTriggerSend = (TriggerSend)Delegate.Remove(SteamChannel.onTriggerSend, new TriggerSend(OnTriggerSend));
+            EffectManager.onEffectButtonClicked -= OnEffectButtonClicked;
+        }
+
+        private void OnEffectButtonClicked(Player player, string buttonName)
+        {
+            UnturnedPlayer unturnedPlayer = UnturnedPlayer.FromPlayer(player);
+            PlayerComponent component = unturnedPlayer.GetComponent<PlayerComponent>();
+
+            // Handle warp button clicks
+            if (buttonName.StartsWith("Warp_loc_"))
+            {
+                int warpIndex;
+                if (int.TryParse(buttonName.Replace("Warp_loc_", ""), out warpIndex))
+                {
+                    warpIndex--; // Adjust for 0-based indexing
+                    if (warpIndex >= 0 && warpIndex < Plugin.Instance.Configuration.Instance.Warps.Count)
+                    {
+                        Warp warp = Plugin.Instance.Configuration.Instance.Warps[warpIndex];
+                        if (warp.SubWarps.Count == 0)
+                        {
+                            new Transelation("warp_null", Array.Empty<object>()).execute(unturnedPlayer);
+                            return;
+                        }
+
+                        if (Plugin.Instance.Warping.Contains(unturnedPlayer.CSteamID))
+                        {
+                            new Transelation("already_delay", Array.Empty<object>()).execute(unturnedPlayer);
+                            return;
+                        }
+
+                        component.CurrentWarp = warp;
+                        component.TimeTeleportWarp = DateTime.Now;
+                        component.InitialPosition = new SerializableVector3(unturnedPlayer.Position.x, unturnedPlayer.Position.y, unturnedPlayer.Position.z);
+                        component.IsTeleporting = true;
+
+                        Plugin.Instance.Warping.Add(unturnedPlayer.CSteamID);
+                        new Transelation("warp_teleport_ok", new object[] { warp.Name, Plugin.Instance.Configuration.Instance.DelayTeleportToWarp }).execute(unturnedPlayer);
+                    }
+                }
+            }
+            else if (buttonName == "Close_warp")
+            {
+                // Close the UI
+                EffectManager.askEffectClearByID(45882, unturnedPlayer.Player.channel.owner.transportConnection);
+            }
+        }
+
+        private void EventsOnPlayerDisconnected(UnturnedPlayer player)
+        {
+            if (Warping.Contains(player.CSteamID))
+            {
+                Warping.Remove(player.CSteamID);
+                var component = player.GetComponent<PlayerComponent>();
+                if (component != null && component.IsTeleporting)
+                {
+                    component.CancelTeleport("warp_cancel_disconnect");
+                }
+            }
+        }
+
+        private void OnDeployBarricadeRequested(Barricade barricade, ItemBarricadeAsset asset, Transform hit, ref Vector3 point, ref float angle_x, ref float angle_y, ref float angle_z, ref ulong owner, ref ulong group, ref bool shouldAllow)
+        {
+            if (shouldAllow)
+            {
+                foreach (var warp in Configuration.Instance.Warps)
+                {
+                    foreach (var subWarp in warp.SubWarps)
+                    {
+                        if (Vector3.Distance((Vector3)subWarp.Position, point) <= Configuration.Instance.NoBuildRadius)
+                        {
+                            shouldAllow = false;
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+
+        private void OnDeployStructureRequested(Structure structure, ItemStructureAsset asset, ref Vector3 point, ref float angle_x, ref float angle_y, ref float angle_z, ref ulong owner, ref ulong group, ref bool shouldAllow)
+        {
+            if (shouldAllow)
+            {
+                foreach (var warp in Configuration.Instance.Warps)
+                {
+                    foreach (var subWarp in warp.SubWarps)
+                    {
+                        if (Vector3.Distance((Vector3)subWarp.Position, point) <= Configuration.Instance.NoBuildRadius)
+                        {
+                            shouldAllow = false;
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+
+        private void DamageToolOnDamagePlayerRequested(ref DamagePlayerParameters parameters, ref bool shouldAllow)
+        {
+            CSteamID steamID = parameters.player.channel.owner.playerID.steamID;
+            var player = UnturnedPlayer.FromCSteamID(steamID);
+            var component = player.GetComponent<PlayerComponent>();
+
+            // Cancel teleport if damaged during teleport
+            if (component != null && component.IsTeleporting && Configuration.Instance.CancelOnDamage)
+            {
+                component.CancelTeleport("warp_cancel_damage");
+            }
+
+            // Apply WarpProtect (immunity after teleport)
+            if (shouldAllow && _warpProtect.ContainsKey(steamID) && _warpProtect[steamID] > DateTime.Now)
+            {
+                shouldAllow = false;
+            }
+
+            // Cancel teleport if the player dies
+            if (shouldAllow && component != null && component.IsTeleporting && parameters.player.life.health - parameters.damage <= 0)
+            {
+                component.CancelTeleport("warp_cancel_death");
+            }
+        }
+
+        private void OnTriggerSend(SteamPlayer player, string s, ESteamCall mode, ESteamPacket type, object[] arguments)
+        {
+            if (s != "tellEquip" || !_warpProtect.ContainsKey(player.playerID.steamID) || _warpProtect[player.playerID.steamID] < DateTime.Now)
+            {
+                return;
+            }
+
+            byte b = (byte)arguments[3];
+            if (Assets.find(EAssetType.ITEM, (ushort)b) is ItemGunAsset)
+            {
+                _warpProtect.Remove(player.playerID.steamID);
+
+                // Cancel teleport if shooting during teleport
+                var unturnedPlayer = UnturnedPlayer.FromSteamPlayer(player);
+                var component = unturnedPlayer.GetComponent<PlayerComponent>();
+                if (component != null && component.IsTeleporting && Configuration.Instance.CancelOnShooting)
+                {
+                    component.CancelTeleport("warp_cancel_shooting");
+                }
+            }
+        }
+
+        public void AfterWarp(UnturnedPlayer player)
+        {
+            Warping.Remove(player.CSteamID);
+            if (player.Player.equipment.isEquipped && player.Player.equipment.asset is ItemGunAsset)
+            {
+                return;
+            }
+            _warpProtect[player.CSteamID] = DateTime.Now.AddSeconds(Configuration.Instance.WarpProtect);
+        }
+    }
+}
+
+--- D:\Desktop files--------------------\----\Unturned----------\Сервер\PLG\MY\Joskiye ne moi\ExeWarps\ExeWarps net 4.5\ExeWarps\SerializableVector3.cs ---
+﻿using System.Xml.Serialization;
+
+namespace AdvancedWarps
+{
+    [XmlRoot("SerializableVector3")]
+    public class SerializableVector3
+    {
+        [XmlAttribute("x")]
+        public float X { get; set; }
+
+        [XmlAttribute("y")]
+        public float Y { get; set; }
+
+        [XmlAttribute("z")]
+        public float Z { get; set; }
+
+        public SerializableVector3()
+        {
+            X = 0f;
+            Y = 0f;
+            Z = 0f;
+        }
+
+        public SerializableVector3(float x, float y, float z)
+        {
+            X = x;
+            Y = y;
+            Z = z;
+        }
+
+        public static implicit operator UnityEngine.Vector3(SerializableVector3 vec)
+        {
+            return new UnityEngine.Vector3(vec.X, vec.Y, vec.Z);
+        }
+
+        public static implicit operator SerializableVector3(UnityEngine.Vector3 vec)
+        {
+            return new SerializableVector3(vec.x, vec.y, vec.z);
+        }
+    }
+}
+
+--- D:\Desktop files--------------------\----\Unturned----------\Сервер\PLG\MY\Joskiye ne moi\ExeWarps\ExeWarps net 4.5\ExeWarps\Transelation.cs ---
+﻿using Rocket.Core.Plugins;
+using Rocket.Unturned.Chat;
+using Rocket.Unturned.Player;
+using SDG.Unturned;
+using UnityEngine;
+
+namespace AdvancedWarps
+{
+    public class Transelation
+    {
+        private Color _color;
+        private string _message;
+        private string _transelation;
+        private readonly RocketPlugin _plugin;
+
+        public Transelation(string transelation, params object[] args)
+        {
+            this._transelation = transelation;
+            this._plugin = Plugin.Instance;
+            this.refreshMessage(transelation, args);
+        }
+
+        public void refreshMessage(string trans, params object[] args)
+        {
+            string text = this.plugin.Translate(trans, args);
+            try
+            {
+                int num = text.ToLower().LastIndexOf("color=");
+                string text2 = text.Substring(num + 6);
+                string text3 = text2;
+                bool flag = text2.StartsWith("#");
+                if (flag)
+                {
+                    text2 = text2.Remove(0, 1);
+                }
+                bool flag2 = !text3.StartsWith("#");
+                if (flag2)
+                {
+                    text3 = text3.Insert(0, "#");
+                }
+                text = text.Remove(num);
+                bool flag3 = ColorUtility.TryParseHtmlString(text3, out this._color);
+                if (!flag3)
+                {
+                    this._color = UnturnedChat.GetColorFromName(text2, Color.green);
+                }
+            }
+            catch
+            {
+                this._color = Color.green;
+            }
+            this._message = text;
+        }
+
+        public void execute(Player player)
+        {
+            UnturnedChat.Say(UnturnedPlayer.FromPlayer(player), this._message, this._color);
+        }
+
+        public void execute(UnturnedPlayer player)
+        {
+            UnturnedChat.Say(player, this._message, this._color);
+        }
+
+        public void execute()
+        {
+            UnturnedChat.Say(this._message, this._color);
+        }
+
+        public RocketPlugin plugin => this._plugin;
+        public Color color => this._color;
+        public string message => this._message;
+        public string transelation => this._transelation;
+    }
+}
+
+--- D:\Desktop files--------------------\----\Unturned----------\Сервер\PLG\MY\Joskiye ne moi\ExeWarps\ExeWarps net 4.5\ExeWarps\Warp.cs ---
+﻿using System.Collections.Generic;
+using System.Xml.Serialization;
+
+namespace AdvancedWarps
+{
+    public class Warp
+    {
+        [XmlAttribute]
+        public string Name;
+
+        public List<SubWarp> SubWarps;
+
+        public Warp(string name)
+        {
+            this.Name = name;
+            this.SubWarps = new List<SubWarp>();
+        }
+
+        public Warp()
+        {
+            this.SubWarps = new List<SubWarp>();
+        }
+    }
+
+    public class SubWarp
+    {
+        public int Id;
+        public SerializableVector3 Position;
+
+        public SubWarp(int id, SerializableVector3 position)
+        {
+            this.Id = id;
+            this.Position = position;
+        }
+
+        public SubWarp()
+        {
+            this.Position = new SerializableVector3();
+        }
+    }
+}
+
+--- D:\Desktop files--------------------\----\Unturned----------\Сервер\PLG\MY\Joskiye ne moi\ExeWarps\ExeWarps net 4.5\ExeWarps\obj\Debug\.NETFramework,Version=v4.8.AssemblyAttributes.cs ---
+// <autogenerated />
+using System;
+using System.Reflection;
+[assembly: global::System.Runtime.Versioning.TargetFrameworkAttribute(".NETFramework,Version=v4.8", FrameworkDisplayName = ".NET Framework 4.8")]
+
+
+--- D:\Desktop files--------------------\----\Unturned----------\Сервер\PLG\MY\Joskiye ne moi\ExeWarps\ExeWarps net 4.5\ExeWarps\obj\Debug\TemporaryGeneratedFile_036C0B5B-1481-4323-8D20-8F5ADCB23D92.cs ---
+
+
+--- D:\Desktop files--------------------\----\Unturned----------\Сервер\PLG\MY\Joskiye ne moi\ExeWarps\ExeWarps net 4.5\ExeWarps\obj\Debug\TemporaryGeneratedFile_5937a670-0e60-4077-877b-f7221da3dda1.cs ---
+
+
+--- D:\Desktop files--------------------\----\Unturned----------\Сервер\PLG\MY\Joskiye ne moi\ExeWarps\ExeWarps net 4.5\ExeWarps\obj\Debug\TemporaryGeneratedFile_E7A71F73-0F8D-4B9B-B56E-8E70B10BC5D3.cs ---
+
+
+--- D:\Desktop files--------------------\----\Unturned----------\Сервер\PLG\MY\Joskiye ne moi\ExeWarps\ExeWarps net 4.5\ExeWarps\Properties\AssemblyInfo.cs ---
+using System.Diagnostics;
+using System.Reflection;
+using System.Runtime.CompilerServices;
+using System.Runtime.Versioning;
+
+[assembly: CompilationRelaxations(8)]
+[assembly: RuntimeCompatibility(WrapNonExceptionThrows = true)]
+[assembly: Debuggable(DebuggableAttribute.DebuggingModes.IgnoreSymbolStoreSequencePoints)]
+[assembly: AssemblyCompany("ExeWarps")]
+[assembly: AssemblyConfiguration("Release")]
+[assembly: AssemblyFileVersion("1.0.0.0")]
+[assembly: AssemblyInformationalVersion("1.0.0")]
+[assembly: AssemblyProduct("ExeWarps")]
+[assembly: AssemblyTitle("Nillya")]
+[assembly: AssemblyVersion("1.0.0.0")]
+
+

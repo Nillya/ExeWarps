@@ -18,10 +18,13 @@ namespace AdvancedWarps
         {
             UnturnedPlayer player = (UnturnedPlayer)caller;
 
-            // Open UI with effect ID 45882
+            // Включаем Modal флаг для размытия и свободы движения мыши
+            player.Player.enablePluginWidgetFlag(EPluginWidgetFlags.Modal);
+
+            // Открываем UI с эффектом ID 45882
             EffectManager.sendUIEffect(45882, short.MaxValue, player.Player.channel.owner.transportConnection, true);
 
-            // Update UI with warp names (up to 10 warps)
+            // Обновляем UI с названиями варпов (до 10 варпов)
             for (int i = 0; i < 10; i++)
             {
                 string warpName = i < Plugin.Instance.Configuration.Instance.Warps.Count ? Plugin.Instance.Configuration.Instance.Warps[i].Name : "";
