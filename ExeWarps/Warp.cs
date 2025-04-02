@@ -13,6 +13,9 @@ namespace AdvancedWarps
         [XmlAttribute]
         public int WarpId;
 
+        [XmlAttribute]
+        public bool IsActive = true;
+
         public List<SubWarp> SubWarps;
 
         public Warp(string name, int warpId)
@@ -20,11 +23,13 @@ namespace AdvancedWarps
             this.Name = name;
             this.WarpId = warpId;
             this.SubWarps = new List<SubWarp>();
+            this.IsActive = true;
         }
 
         public Warp()
         {
             this.SubWarps = new List<SubWarp>();
+            this.IsActive = false;
         }
     }
     public class SubWarp

@@ -34,6 +34,9 @@
     <RootNamespace>ExeWarps</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="0Harmony">
+      <HintPath>E:\My PC\Games\Steam\steamapps\common\U3DS\Servers\Def Plug\Rocket\Libraries\0Harmony.dll</HintPath>
+    </Reference>
     <Reference Include="Assembly-CSharp">
       <HintPath>E:\My PC\Games\Steam\steamapps\common\U3DS\Servers\Def Plug\Rocket\Libraries\Assembly-CSharp.dll</HintPath>
       <Private>False</Private>
@@ -74,6 +77,7 @@
     <Compile Include="Configuration.cs" />
     <Compile Include="CommandWarp.cs" />
     <Compile Include="PlayerComponent.cs" />
+    <Compile Include="FirePatch.cs" />
     <Compile Include="Transelation.cs" />
     <Compile Include="SerializableVector3.cs" />
     <Compile Include="Warp.cs" />

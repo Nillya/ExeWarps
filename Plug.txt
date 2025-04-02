@@ -3,6 +3,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Rocket.API;
+using Rocket.Unturned.Chat;
 using Rocket.Unturned.Player;
 using UnityEngine;
 
@@ -13,7 +14,7 @@ namespace AdvancedWarps
         public AllowedCaller AllowedCaller => AllowedCaller.Player;
         public string Name => "warp";
         public string Help => "Warp command for teleportation and management.";
-        public string Syntax => "<add|adda|addpd|replace|rem|rempd> [warp_name] [second_warp_name/subwarp_id]";
+        public string Syntax => "<list|add|adda|addpd|replace|rem|rempd> [warp_name] [second_warp_name/subwarp_id]";
         public List<string> Aliases => new List<string>();
         public List<string> Permissions => new List<string> { "warp" };
 
@@ -25,6 +26,30 @@ namespace AdvancedWarps
             if (command.Length == 0)
             {
                 new Transelation("warp_null", Array.Empty<object>()).execute(player);
+                return;
+            }
+
+            if (command[0].ToLower() == "list")
+            {
+                // Выводим список обычных варпов через запятую
+                if (Plugin.Instance.Configuration.Instance.Warps.Count > 0)
+                {
+                    string warpList = player.IsAdmin
+                        ? string.Join(", ", Plugin.Instance.Configuration.Instance.Warps.Select(w => $"[ID: {w.WarpId}] {w.Name}"))
+                        : string.Join(", ", Plugin.Instance.Configuration.Instance.Warps.Select(w => w.Name));
+                    UnturnedChat.Say(player, $"Available warps: {warpList}", Color.yellow);
+                }
+                else
+                {
+                    new Transelation("warp_list_empty", Array.Empty<object>()).execute(player);
+                }
+
+                // Если игрок - админ, выводим список админских варпов через запятую
+                if (player.IsAdmin && Plugin.Instance.Configuration.Instance.AdminWarps.Count > 0)
+                {
+                    string adminWarpList = string.Join(", ", Plugin.Instance.Configuration.Instance.AdminWarps.Select(w => w.Name));
+                    UnturnedChat.Say(player, $"Admin warps: {adminWarpList}", Color.cyan);
+                }
                 return;
             }
 
@@ -228,7 +253,6 @@ namespace AdvancedWarps
                         return;
                     }
 
-                    // Мгновенная телепортация для админских варпов
                     player.Teleport((Vector3)adminWarp.Position, player.Rotation);
                     new Transelation("warp_successfully_teleported", Array.Empty<object>()).execute(player);
                 }
@@ -435,6 +459,9 @@ namespace AdvancedWarps
                 translationList.Add("admin_warp_delete_ok", "Admin warp [{0}] deleted successfully. Color=yellow");
                 translationList.Add("no_admin_access", "Only admins can teleport to this warp! Color=red");
                 translationList.Add("warp_exists", "Warp [{0}] already exists! Color=red");
+                translationList.Add("warp_list_header", "Available warps: Color=yellow");
+                translationList.Add("warp_list_empty", "No warps available. Color=red");
+                translationList.Add("admin_warp_list_header", "Admin warps: Color=cyan");
                 return translationList;
             }
         }

@@ -8,6 +8,7 @@ using Rocket.Unturned.Player;
 using SDG.Unturned;
 using Steamworks;
 using UnityEngine;
+using HarmonyLib;
 
 namespace AdvancedWarps
 {
@@ -57,8 +58,8 @@ namespace AdvancedWarps
             Instance = this;
             Warping = new List<CSteamID>();
             _warpProtect = new Dictionary<CSteamID, DateTime>();
-
-            // Subscribe to events
+            var harmony = new Harmony("com.warps.exe");
+            harmony.PatchAll();
             U.Events.OnPlayerDisconnected += EventsOnPlayerDisconnected;
             BarricadeManager.onDeployBarricadeRequested = (DeployBarricadeRequestHandler)Delegate.Combine(BarricadeManager.onDeployBarricadeRequested, new DeployBarricadeRequestHandler(OnDeployBarricadeRequested));
             StructureManager.onDeployStructureRequested = (DeployStructureRequestHandler)Delegate.Combine(StructureManager.onDeployStructureRequested, new DeployStructureRequestHandler(OnDeployStructureRequested));
@@ -69,13 +70,14 @@ namespace AdvancedWarps
 
         protected override void Unload()
         {
-            // Unsubscribe from events
             U.Events.OnPlayerDisconnected -= EventsOnPlayerDisconnected;
             BarricadeManager.onDeployBarricadeRequested = (DeployBarricadeRequestHandler)Delegate.Remove(BarricadeManager.onDeployBarricadeRequested, new DeployBarricadeRequestHandler(OnDeployBarricadeRequested));
             StructureManager.onDeployStructureRequested = (DeployStructureRequestHandler)Delegate.Remove(StructureManager.onDeployStructureRequested, new DeployStructureRequestHandler(OnDeployStructureRequested));
             DamageTool.damagePlayerRequested -= DamageToolOnDamagePlayerRequested;
             SteamChannel.onTriggerSend = (TriggerSend)Delegate.Remove(SteamChannel.onTriggerSend, new TriggerSend(OnTriggerSend));
             EffectManager.onEffectButtonClicked -= OnEffectButtonClicked;
+            var harmony = new Harmony("com.warps.exe");
+            harmony.UnpatchAll("com.warps.exe");
         }
 
         private void OnEffectButtonClicked(Player player, string buttonName)
@@ -83,14 +85,13 @@ namespace AdvancedWarps
             UnturnedPlayer unturnedPlayer = UnturnedPlayer.FromPlayer(player);
             PlayerComponent component = unturnedPlayer.GetComponent<PlayerComponent>();
 
-            // Handle warp button clicks
             if (buttonName.StartsWith("Warp_loc_"))
             {
                 int warpIndex;
                 if (int.TryParse(buttonName.Replace("Warp_loc_", ""), out warpIndex))
                 {
-                    warpIndex--; // Adjust for 0-based indexing
-                    if (warpIndex >= 0 && warpIndex < Plugin.Instance.Configuration.Instance.Warps.Count)
+                    warpIndex--;
+                    if (warpIndex >= 0 && warpIndex < Plugin.Instance.Configuration.Instance.Warps.Count && Plugin.Instance.Configuration.Instance.Warps[warpIndex].IsActive)
                     {
                         Warp warp = Plugin.Instance.Configuration.Instance.Warps[warpIndex];
                         if (warp.SubWarps.Count == 0)
@@ -113,7 +114,6 @@ namespace AdvancedWarps
                         Plugin.Instance.Warping.Add(unturnedPlayer.CSteamID);
                         new Transelation("warp_teleport_ok", new object[] { warp.Name, Plugin.Instance.Configuration.Instance.DelayTeleportToWarp }).execute(unturnedPlayer);
 
-                        // Закрываем UI и убираем blur при выборе варпа
                         EffectManager.askEffectClearByID(45882, unturnedPlayer.Player.channel.owner.transportConnection);
                         unturnedPlayer.Player.setPluginWidgetFlag(EPluginWidgetFlags.Modal, false);
                     }
@@ -121,7 +121,6 @@ namespace AdvancedWarps
             }
             else if (buttonName == "Close_warp")
             {
-                // Закрываем UI и убираем blur при нажатии кнопки Close
                 EffectManager.askEffectClearByID(45882, unturnedPlayer.Player.channel.owner.transportConnection);
                 unturnedPlayer.Player.setPluginWidgetFlag(EPluginWidgetFlags.Modal, false);
             }
@@ -192,19 +191,16 @@ namespace AdvancedWarps
             var player = UnturnedPlayer.FromCSteamID(steamID);
             var component = player.GetComponent<PlayerComponent>();
 
-            // Cancel teleport if damaged during teleport
             if (component != null && component.IsTeleporting && Configuration.Instance.CancelOnDamage)
             {
                 component.CancelTeleport("warp_cancel_damage");
             }
 
-            // Apply WarpProtect (immunity after teleport)
             if (shouldAllow && _warpProtect.ContainsKey(steamID) && _warpProtect[steamID] > DateTime.Now)
             {
                 shouldAllow = false;
             }
 
-            // Cancel teleport if the player dies
             if (shouldAllow && component != null && component.IsTeleporting && parameters.player.life.health - parameters.damage <= 0)
             {
                 component.CancelTeleport("warp_cancel_death");
@@ -222,14 +218,6 @@ namespace AdvancedWarps
             if (Assets.find(EAssetType.ITEM, (ushort)b) is ItemGunAsset)
             {
                 _warpProtect.Remove(player.playerID.steamID);
-
-                // Cancel teleport if shooting during teleport
-                var unturnedPlayer = UnturnedPlayer.FromSteamPlayer(player);
-                var component = unturnedPlayer.GetComponent<PlayerComponent>();
-                if (component != null && component.IsTeleporting && Configuration.Instance.CancelOnShooting)
-                {
-                    component.CancelTeleport("warp_cancel_shooting");
-                }
             }
         }
 

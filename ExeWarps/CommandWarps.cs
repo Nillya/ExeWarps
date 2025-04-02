@@ -27,7 +27,9 @@ namespace AdvancedWarps
             // Обновляем UI с названиями варпов (до 10 варпов)
             for (int i = 0; i < 10; i++)
             {
-                string warpName = i < Plugin.Instance.Configuration.Instance.Warps.Count ? Plugin.Instance.Configuration.Instance.Warps[i].Name : "";
+                string warpName = i < Plugin.Instance.Configuration.Instance.Warps.Count && Plugin.Instance.Configuration.Instance.Warps[i].IsActive
+                    ? Plugin.Instance.Configuration.Instance.Warps[i].Name
+                    : "";
                 EffectManager.sendUIEffectText(short.MaxValue, player.Player.channel.owner.transportConnection, true, $"Warp_loc_text_{i + 1}", warpName);
             }
         }
