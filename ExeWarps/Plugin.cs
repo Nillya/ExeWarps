@@ -24,7 +24,7 @@ namespace AdvancedWarps
                 TranslationList translationList = new TranslationList();
                 translationList.Add("warp_null", "Warp with this name not found. Color=red");
                 translationList.Add("warp_teleport_ok", "You will be teleported to warp: [{0}] in: [{1}sec]. Color=yellow");
-                translationList.Add("warp_successfully_teleported", "You have been successfully teleported to the warp. Color=green");
+                translationList.Add("warp_successfully_teleported", "You have been successfully teleported to the warp. Color=yellow");
                 translationList.Add("warp_create_ok", "You have successfully created a warp named: [{0}]. Color=yellow");
                 translationList.Add("warp_delete_ok", "You have successfully deleted the warp named: [{0}]. Color=yellow");
                 translationList.Add("warp_replace_ok", "Warps [{0}] and [{1}] have been successfully swapped. Color=yellow");
@@ -41,6 +41,13 @@ namespace AdvancedWarps
                 translationList.Add("subwarp_delete_ok", "Sub-warp with ID [{1}] removed from warp [{0}]. Color=yellow");
                 translationList.Add("warp_same_swap", "Cannot swap a warp with itself! Color=red");
                 translationList.Add("invalid_position", "Invalid position specified! Color=red");
+                translationList.Add("admin_warp_create_ok", "Admin warp [{0}] created successfully. Color=yellow");
+                translationList.Add("admin_warp_delete_ok", "Admin warp [{0}] deleted successfully. Color=yellow");
+                translationList.Add("no_admin_access", "Only admins can teleport to this warp! Color=red");
+                translationList.Add("warp_exists", "Warp [{0}] already exists! Color=red");
+                translationList.Add("warp_list_header", "Available warps: Color=yellow");
+                translationList.Add("warp_list_empty", "No warps available. Color=red");
+                translationList.Add("admin_warp_list_header", "Admin warps: Color=cyan");
                 return translationList;
             }
         }

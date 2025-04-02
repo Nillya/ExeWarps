@@ -13,6 +13,7 @@ namespace AdvancedWarps
         public float NoBuildRadius;
         public double WarpProtect;
         public List<Warp> Warps;
+        public List<AdminWarp> AdminWarps;
 
         public void LoadDefaults()
         {
@@ -24,6 +25,7 @@ namespace AdvancedWarps
             NoBuildRadius = 5f;
             WarpProtect = 3.5;
             Warps = new List<Warp>();
+            AdminWarps = new List<AdminWarp>();
         }
     }
 }

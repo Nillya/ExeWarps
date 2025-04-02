@@ -1,5 +1,7 @@
-﻿using System.Collections.Generic;
+﻿// Warp.cs
+using System.Collections.Generic;
 using System.Xml.Serialization;
+using UnityEngine;
 
 namespace AdvancedWarps
 {
@@ -25,7 +27,6 @@ namespace AdvancedWarps
             this.SubWarps = new List<SubWarp>();
         }
     }
-
     public class SubWarp
     {
         public int Id;
@@ -38,6 +39,24 @@ namespace AdvancedWarps
         }
 
         public SubWarp()
+        {
+            this.Position = new SerializableVector3();
+        }
+    }
+    public class AdminWarp
+    {
+        [XmlAttribute]
+        public string Name;
+
+        public SerializableVector3 Position;
+
+        public AdminWarp(string name, SerializableVector3 position)
+        {
+            this.Name = name;
+            this.Position = position;
+        }
+
+        public AdminWarp()
         {
             this.Position = new SerializableVector3();
         }
