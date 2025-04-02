@@ -27,14 +27,14 @@ namespace AdvancedWarps
                 new Transelation("warp_null", Array.Empty<object>()).execute(player);
                 return;
             }
-
             if (command[0].ToLower() == "list")
             {
-                if (Plugin.Instance.Configuration.Instance.Warps.Count > 0)
+                var activeWarps = Plugin.Instance.Configuration.Instance.Warps.Where(w => w.IsActive).OrderBy(w => w.WarpId).ToList();
+                if (activeWarps.Count > 0)
                 {
                     string warpList = player.IsAdmin
-                        ? string.Join(", ", Plugin.Instance.Configuration.Instance.Warps.Where(w => w.IsActive).Select(w => $"[ID: {w.WarpId}] {w.Name}"))
-                        : string.Join(", ", Plugin.Instance.Configuration.Instance.Warps.Where(w => w.IsActive).Select(w => w.Name));
+                        ? string.Join(", ", activeWarps.Select(w => $"[ID: {w.WarpId}] {w.Name}"))
+                        : string.Join(", ", activeWarps.Select(w => w.Name));
                     UnturnedChat.Say(player, $"Available warps: {warpList}", Color.yellow);
                 }
                 else
@@ -49,7 +49,6 @@ namespace AdvancedWarps
                 }
                 return;
             }
-
             if (command[0].ToLower() == "add" && command.Length >= 2 && player.IsAdmin)
             {
                 string warpName = command[1];
@@ -83,8 +82,8 @@ namespace AdvancedWarps
             else if (command[0].ToLower() == "adda" && command.Length >= 2 && player.IsAdmin)
             {
                 string warpName = command[1];
-                if (Plugin.Instance.Configuration.Instance.Warps.Any(w => w.Name.ToLower() == warpName.ToLower()) ||
-                    Plugin.Instance.Configuration.Instance.AdminWarps.Any(w => w.Name.ToLower() == warpName.ToLower()))
+                if (Plugin.Instance.Configuration.Instance.Warps.Any(w => w.Name != null && w.Name.ToLower() == warpName.ToLower()) ||
+                    Plugin.Instance.Configuration.Instance.AdminWarps.Any(w => w.Name != null && w.Name.ToLower() == warpName.ToLower()))
                 {
                     new Transelation("warp_exists", new object[] { warpName }).execute(player);
                     return;
@@ -112,11 +111,11 @@ namespace AdvancedWarps
             }
             else if (command[0].ToLower() == "replace" && command.Length >= 3 && player.IsAdmin)
             {
-                int index1 = -1, index2 = -1;
-                bool isId1 = int.TryParse(command[1], out int id1);
-                bool isId2 = int.TryParse(command[2], out int id2);
+                int id1, id2;
+                bool isId1 = int.TryParse(command[1], out id1);
+                bool isId2 = int.TryParse(command[2], out id2);
 
-                // Check if trying to swap/move the same warp
+                // Check if trying to move to the same ID
                 if (isId1 && isId2 && id1 == id2)
                 {
                     new Transelation("warp_same_swap", Array.Empty<object>()).execute(player);
@@ -128,59 +127,61 @@ namespace AdvancedWarps
                     return;
                 }
 
-                // Determine index1 (source warp)
+                // Find source warp
+                Warp sourceWarp = null;
                 if (isId1)
                 {
-                    Warp warp1 = Plugin.Instance.Configuration.Instance.Warps.Find(w => w.WarpId == id1 && w.Name != null);
-                    index1 = warp1 != null ? Plugin.Instance.Configuration.Instance.Warps.IndexOf(warp1) : -1;
+                    sourceWarp = Plugin.Instance.Configuration.Instance.Warps.Find(w => w.WarpId == id1 && w.IsActive);
                 }
                 else
                 {
-                    index1 = Plugin.Instance.Configuration.Instance.Warps.FindIndex(w => w.Name != null && w.Name.ToLower() == command[1].ToLower());
+                    sourceWarp = Plugin.Instance.Configuration.Instance.Warps.Find(w => w.Name != null && w.IsActive && w.Name.ToLower() == command[1].ToLower());
                 }
 
-                // Check if source warp exists
-                if (index1 == -1)
+                if (sourceWarp == null)
                 {
                     new Transelation("warp_null", Array.Empty<object>()).execute(player);
                     return;
                 }
 
-                // Determine index2 (target position)
+                // Determine target ID
+                int targetId;
                 if (isId2)
                 {
-                    index2 = id2 - 1; // Convert to 0-based index
+                    targetId = id2;
                 }
                 else
                 {
-                    index2 = Plugin.Instance.Configuration.Instance.Warps.FindIndex(w => w.Name != null && w.Name.ToLower() == command[2].ToLower());
-                    if (index2 == -1)
+                    Warp targetWarp = Plugin.Instance.Configuration.Instance.Warps.Find(w => w.Name != null && w.IsActive && w.Name.ToLower() == command[2].ToLower());
+                    if (targetWarp == null)
                     {
                         new Transelation("warp_null", Array.Empty<object>()).execute(player);
                         return;
                     }
+                    targetId = targetWarp.WarpId;
                 }
 
-                // Validate index2 (allow up to a reasonable limit, e.g., 100)
-                if (index2 < 0 || index2 >= 10)
+                // Validate target ID
+                if (targetId < 1 || targetId > 100) // Reasonable upper limit
                 {
                     new Transelation("invalid_position", Array.Empty<object>()).execute(player);
                     return;
                 }
 
-                // Ensure the list is large enough to accommodate index2
-                while (Plugin.Instance.Configuration.Instance.Warps.Count <= index2)
+                // Check if target ID is already taken
+                Warp existingWarp = Plugin.Instance.Configuration.Instance.Warps.Find(w => w.WarpId == targetId && w.IsActive);
+                if (existingWarp != null && existingWarp != sourceWarp)
                 {
-                    Plugin.Instance.Configuration.Instance.Warps.Add(new Warp(null, Plugin.Instance.Configuration.Instance.Warps.Count + 1));
+                    existingWarp.IsActive = false; // Deactivate the existing warp at targetId
+                    existingWarp.Name = null;
+                    existingWarp.SubWarps.Clear();
                 }
 
-                // Perform the move
-                Warp movingWarp = Plugin.Instance.Configuration.Instance.Warps[index1];
-                Plugin.Instance.Configuration.Instance.Warps.RemoveAt(index1);
-                Plugin.Instance.Configuration.Instance.Warps.Insert(index2, movingWarp);
+                // Reassign WarpId
+                sourceWarp.WarpId = targetId;
 
-                // Clean up any null entries after the move (optional, can be removed if you want to keep gaps)
-                Plugin.Instance.Configuration.Instance.Warps.RemoveAll(w => w.Name == null && w.SubWarps.Count == 0);
+                // Sort the list by WarpId
+                Plugin.Instance.Configuration.Instance.Warps.Sort((a, b) => a.WarpId.CompareTo(b.WarpId));
 
                 Plugin.Instance.Configuration.Save();
 

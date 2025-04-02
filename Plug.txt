@@ -31,12 +31,11 @@ namespace AdvancedWarps
 
             if (command[0].ToLower() == "list")
             {
-                // Выводим список обычных варпов через запятую
                 if (Plugin.Instance.Configuration.Instance.Warps.Count > 0)
                 {
                     string warpList = player.IsAdmin
-                        ? string.Join(", ", Plugin.Instance.Configuration.Instance.Warps.Select(w => $"[ID: {w.WarpId}] {w.Name}"))
-                        : string.Join(", ", Plugin.Instance.Configuration.Instance.Warps.Select(w => w.Name));
+                        ? string.Join(", ", Plugin.Instance.Configuration.Instance.Warps.Where(w => w.IsActive).Select(w => $"[ID: {w.WarpId}] {w.Name}"))
+                        : string.Join(", ", Plugin.Instance.Configuration.Instance.Warps.Where(w => w.IsActive).Select(w => w.Name));
                     UnturnedChat.Say(player, $"Available warps: {warpList}", Color.yellow);
                 }
                 else
@@ -44,7 +43,6 @@ namespace AdvancedWarps
                     new Transelation("warp_list_empty", Array.Empty<object>()).execute(player);
                 }
 
-                // Если игрок - админ, выводим список админских варпов через запятую
                 if (player.IsAdmin && Plugin.Instance.Configuration.Instance.AdminWarps.Count > 0)
                 {
                     string adminWarpList = string.Join(", ", Plugin.Instance.Configuration.Instance.AdminWarps.Select(w => w.Name));
@@ -56,19 +54,30 @@ namespace AdvancedWarps
             if (command[0].ToLower() == "add" && command.Length >= 2 && player.IsAdmin)
             {
                 string warpName = command[1];
-                if (Plugin.Instance.Configuration.Instance.Warps.Any(w => w.Name.ToLower() == warpName.ToLower()) ||
+                if (Plugin.Instance.Configuration.Instance.Warps.Any(w => w.Name != null && w.Name.ToLower() == warpName.ToLower()) ||
                     Plugin.Instance.Configuration.Instance.AdminWarps.Any(w => w.Name.ToLower() == warpName.ToLower()))
                 {
                     new Transelation("warp_exists", new object[] { warpName }).execute(player);
                     return;
                 }
 
-                int newWarpId = Plugin.Instance.Configuration.Instance.Warps.Count > 0
-                    ? Plugin.Instance.Configuration.Instance.Warps.Max(w => w.WarpId) + 1
-                    : 1;
+                // Find the first inactive warp slot
+                Warp inactiveWarp = Plugin.Instance.Configuration.Instance.Warps.Find(w => !w.IsActive);
+                if (inactiveWarp != null)
+                {
+                    inactiveWarp.Name = warpName;
+                    inactiveWarp.SubWarps.Clear();
+                    inactiveWarp.IsActive = true;
+                }
+                else
+                {
+                    int newWarpId = Plugin.Instance.Configuration.Instance.Warps.Count > 0
+                        ? Plugin.Instance.Configuration.Instance.Warps.Max(w => w.WarpId) + 1
+                        : 1;
+                    Warp newWarp = new Warp(warpName, newWarpId);
+                    Plugin.Instance.Configuration.Instance.Warps.Add(newWarp);
+                }
 
-                Warp newWarp = new Warp(warpName, newWarpId);
-                Plugin.Instance.Configuration.Instance.Warps.Add(newWarp);
                 Plugin.Instance.Configuration.Save();
                 new Transelation("warp_create_ok", new object[] { warpName }).execute(player);
             }
@@ -108,6 +117,7 @@ namespace AdvancedWarps
                 bool isId1 = int.TryParse(command[1], out int id1);
                 bool isId2 = int.TryParse(command[2], out int id2);
 
+                // Check if trying to swap/move the same warp
                 if (isId1 && isId2 && id1 == id2)
                 {
                     new Transelation("warp_same_swap", Array.Empty<object>()).execute(player);
@@ -119,64 +129,59 @@ namespace AdvancedWarps
                     return;
                 }
 
-                if (isId1 && isId2)
+                // Determine index1 (source warp)
+                if (isId1)
                 {
-                    Warp warp1 = Plugin.Instance.Configuration.Instance.Warps.Find(w => w.WarpId == id1);
+                    Warp warp1 = Plugin.Instance.Configuration.Instance.Warps.Find(w => w.WarpId == id1 && w.Name != null);
                     index1 = warp1 != null ? Plugin.Instance.Configuration.Instance.Warps.IndexOf(warp1) : -1;
-                    index2 = id2 - 1;
-                }
-                else if (!isId1 && !isId2)
-                {
-                    index1 = Plugin.Instance.Configuration.Instance.Warps.FindIndex(w => w.Name.ToLower() == command[1].ToLower());
-                    index2 = Plugin.Instance.Configuration.Instance.Warps.FindIndex(w => w.Name.ToLower() == command[2].ToLower());
                 }
                 else
                 {
-                    if (isId1)
-                    {
-                        Warp warp1 = Plugin.Instance.Configuration.Instance.Warps.Find(w => w.WarpId == id1);
-                        index1 = warp1 != null ? Plugin.Instance.Configuration.Instance.Warps.IndexOf(warp1) : -1;
-                        index2 = Plugin.Instance.Configuration.Instance.Warps.FindIndex(w => w.Name.ToLower() == command[2].ToLower());
-                        if (index2 == -1 && isId2) index2 = id2 - 1;
-                    }
-                    else
-                    {
-                        index1 = Plugin.Instance.Configuration.Instance.Warps.FindIndex(w => w.Name.ToLower() == command[1].ToLower());
-                        Warp warp2 = Plugin.Instance.Configuration.Instance.Warps.Find(w => w.WarpId == id2);
-                        index2 = warp2 != null ? Plugin.Instance.Configuration.Instance.Warps.IndexOf(warp2) : (id2 - 1);
-                    }
+                    index1 = Plugin.Instance.Configuration.Instance.Warps.FindIndex(w => w.Name != null && w.Name.ToLower() == command[1].ToLower());
                 }
 
+                // Check if source warp exists
                 if (index1 == -1)
                 {
                     new Transelation("warp_null", Array.Empty<object>()).execute(player);
                     return;
                 }
 
-                if (index2 < 0)
+                // Determine index2 (target position)
+                if (isId2)
+                {
+                    index2 = id2 - 1; // Convert to 0-based index
+                }
+                else
+                {
+                    index2 = Plugin.Instance.Configuration.Instance.Warps.FindIndex(w => w.Name != null && w.Name.ToLower() == command[2].ToLower());
+                    if (index2 == -1)
+                    {
+                        new Transelation("warp_null", Array.Empty<object>()).execute(player);
+                        return;
+                    }
+                }
+
+                // Validate index2 (allow up to a reasonable limit, e.g., 100)
+                if (index2 < 0 || index2 >= 10)
                 {
                     new Transelation("invalid_position", Array.Empty<object>()).execute(player);
                     return;
                 }
 
-                if (index2 >= Plugin.Instance.Configuration.Instance.Warps.Count && index2 < 10)
+                // Ensure the list is large enough to accommodate index2
+                while (Plugin.Instance.Configuration.Instance.Warps.Count <= index2)
                 {
-                    Warp movingWarp = Plugin.Instance.Configuration.Instance.Warps[index1];
-                    Plugin.Instance.Configuration.Instance.Warps.RemoveAt(index1);
-                    Plugin.Instance.Configuration.Instance.Warps.Insert(index2, movingWarp);
+                    Plugin.Instance.Configuration.Instance.Warps.Add(new Warp(null, Plugin.Instance.Configuration.Instance.Warps.Count + 1));
                 }
-                else if (index2 < Plugin.Instance.Configuration.Instance.Warps.Count)
-                {
-                    Warp temp = Plugin.Instance.Configuration.Instance.Warps[index1];
-                    Plugin.Instance.Configuration.Instance.Warps.RemoveAt(index1);
-                    if (index2 > index1) index2--;
-                    Plugin.Instance.Configuration.Instance.Warps.Insert(index2, temp);
-                }
-                else
-                {
-                    new Transelation("invalid_position", Array.Empty<object>()).execute(player);
-                    return;
-                }
+
+                // Perform the move
+                Warp movingWarp = Plugin.Instance.Configuration.Instance.Warps[index1];
+                Plugin.Instance.Configuration.Instance.Warps.RemoveAt(index1);
+                Plugin.Instance.Configuration.Instance.Warps.Insert(index2, movingWarp);
+
+                // Clean up any null entries after the move (optional, can be removed if you want to keep gaps)
+                Plugin.Instance.Configuration.Instance.Warps.RemoveAll(w => w.Name == null && w.SubWarps.Count == 0);
 
                 Plugin.Instance.Configuration.Save();
 
@@ -187,12 +192,14 @@ namespace AdvancedWarps
             else if (command[0].ToLower() == "rem" && command.Length >= 2 && player.IsAdmin)
             {
                 string warpName = command[1];
-                Warp warp = Plugin.Instance.Configuration.Instance.Warps.Find(w => w.Name.ToLower() == warpName.ToLower());
+                Warp warp = Plugin.Instance.Configuration.Instance.Warps.Find(w => w.Name != null && w.Name.ToLower() == warpName.ToLower());
                 AdminWarp adminWarp = Plugin.Instance.Configuration.Instance.AdminWarps.Find(w => w.Name.ToLower() == warpName.ToLower());
 
                 if (warp != null)
                 {
-                    Plugin.Instance.Configuration.Instance.Warps.Remove(warp);
+                    warp.Name = null; // Mark as inactive instead of removing
+                    warp.SubWarps.Clear();
+                    warp.IsActive = false;
                     Plugin.Instance.Configuration.Save();
                     new Transelation("warp_delete_ok", new object[] { warpName }).execute(player);
                 }
@@ -242,7 +249,7 @@ namespace AdvancedWarps
             else
             {
                 string warpName = command[0];
-                Warp warp = Plugin.Instance.Configuration.Instance.Warps.Find(w => w.Name.ToLower() == warpName.ToLower());
+                Warp warp = Plugin.Instance.Configuration.Instance.Warps.Find(w => w.Name != null && w.IsActive && w.Name.ToLower() == warpName.ToLower());
                 AdminWarp adminWarp = Plugin.Instance.Configuration.Instance.AdminWarps.Find(w => w.Name.ToLower() == warpName.ToLower());
 
                 if (adminWarp != null)
@@ -311,7 +318,9 @@ namespace AdvancedWarps
             // Обновляем UI с названиями варпов (до 10 варпов)
             for (int i = 0; i < 10; i++)
             {
-                string warpName = i < Plugin.Instance.Configuration.Instance.Warps.Count ? Plugin.Instance.Configuration.Instance.Warps[i].Name : "";
+                string warpName = i < Plugin.Instance.Configuration.Instance.Warps.Count && Plugin.Instance.Configuration.Instance.Warps[i].IsActive
+                    ? Plugin.Instance.Configuration.Instance.Warps[i].Name
+                    : "";
                 EffectManager.sendUIEffectText(short.MaxValue, player.Player.channel.owner.transportConnection, true, $"Warp_loc_text_{i + 1}", warpName);
             }
         }
@@ -347,6 +356,33 @@ namespace AdvancedWarps
             WarpProtect = 3.5;
             Warps = new List<Warp>();
             AdminWarps = new List<AdminWarp>();
+        }
+    }
+}
+
+--- D:\Desktop files--------------------\----\Unturned----------\Сервер\PLG\MY\Joskiye ne moi\ExeWarps\ExeWarps net 4.5\ExeWarps\FirePatch.cs ---
+﻿using HarmonyLib;
+using Rocket.Unturned.Player;
+using SDG.Unturned;
+
+namespace AdvancedWarps
+{
+    [HarmonyPatch(typeof(UseableGun), "fire")]
+    public class FirePatch
+    {
+        static void Prefix(UseableGun __instance)
+        {
+            if (__instance.player == null) return;
+
+            var player = __instance.player;
+            var unturnedPlayer = UnturnedPlayer.FromPlayer(player);
+
+            var component = unturnedPlayer.GetComponent<PlayerComponent>();
+
+            if (component != null && component.IsTeleporting && Plugin.Instance.Configuration.Instance.CancelOnShooting)
+            {
+                component.CancelTeleport("warp_cancel_shooting");
+            }
         }
     }
 }
@@ -422,6 +458,7 @@ using Rocket.Unturned.Player;
 using SDG.Unturned;
 using Steamworks;
 using UnityEngine;
+using HarmonyLib;
 
 namespace AdvancedWarps
 {
@@ -471,8 +508,8 @@ namespace AdvancedWarps
             Instance = this;
             Warping = new List<CSteamID>();
             _warpProtect = new Dictionary<CSteamID, DateTime>();
-
-            // Subscribe to events
+            var harmony = new Harmony("com.warps.exe");
+            harmony.PatchAll();
             U.Events.OnPlayerDisconnected += EventsOnPlayerDisconnected;
             BarricadeManager.onDeployBarricadeRequested = (DeployBarricadeRequestHandler)Delegate.Combine(BarricadeManager.onDeployBarricadeRequested, new DeployBarricadeRequestHandler(OnDeployBarricadeRequested));
             StructureManager.onDeployStructureRequested = (DeployStructureRequestHandler)Delegate.Combine(StructureManager.onDeployStructureRequested, new DeployStructureRequestHandler(OnDeployStructureRequested));
@@ -483,13 +520,14 @@ namespace AdvancedWarps
 
         protected override void Unload()
         {
-            // Unsubscribe from events
             U.Events.OnPlayerDisconnected -= EventsOnPlayerDisconnected;
             BarricadeManager.onDeployBarricadeRequested = (DeployBarricadeRequestHandler)Delegate.Remove(BarricadeManager.onDeployBarricadeRequested, new DeployBarricadeRequestHandler(OnDeployBarricadeRequested));
             StructureManager.onDeployStructureRequested = (DeployStructureRequestHandler)Delegate.Remove(StructureManager.onDeployStructureRequested, new DeployStructureRequestHandler(OnDeployStructureRequested));
             DamageTool.damagePlayerRequested -= DamageToolOnDamagePlayerRequested;
             SteamChannel.onTriggerSend = (TriggerSend)Delegate.Remove(SteamChannel.onTriggerSend, new TriggerSend(OnTriggerSend));
             EffectManager.onEffectButtonClicked -= OnEffectButtonClicked;
+            var harmony = new Harmony("com.warps.exe");
+            harmony.UnpatchAll("com.warps.exe");
         }
 
         private void OnEffectButtonClicked(Player player, string buttonName)
@@ -497,14 +535,13 @@ namespace AdvancedWarps
             UnturnedPlayer unturnedPlayer = UnturnedPlayer.FromPlayer(player);
             PlayerComponent component = unturnedPlayer.GetComponent<PlayerComponent>();
 
-            // Handle warp button clicks
             if (buttonName.StartsWith("Warp_loc_"))
             {
                 int warpIndex;
                 if (int.TryParse(buttonName.Replace("Warp_loc_", ""), out warpIndex))
                 {
-                    warpIndex--; // Adjust for 0-based indexing
-                    if (warpIndex >= 0 && warpIndex < Plugin.Instance.Configuration.Instance.Warps.Count)
+                    warpIndex--;
+                    if (warpIndex >= 0 && warpIndex < Plugin.Instance.Configuration.Instance.Warps.Count && Plugin.Instance.Configuration.Instance.Warps[warpIndex].IsActive)
                     {
                         Warp warp = Plugin.Instance.Configuration.Instance.Warps[warpIndex];
                         if (warp.SubWarps.Count == 0)
@@ -527,7 +564,6 @@ namespace AdvancedWarps
                         Plugin.Instance.Warping.Add(unturnedPlayer.CSteamID);
                         new Transelation("warp_teleport_ok", new object[] { warp.Name, Plugin.Instance.Configuration.Instance.DelayTeleportToWarp }).execute(unturnedPlayer);
 
-                        // Закрываем UI и убираем blur при выборе варпа
                         EffectManager.askEffectClearByID(45882, unturnedPlayer.Player.channel.owner.transportConnection);
                         unturnedPlayer.Player.setPluginWidgetFlag(EPluginWidgetFlags.Modal, false);
                     }
@@ -535,7 +571,6 @@ namespace AdvancedWarps
             }
             else if (buttonName == "Close_warp")
             {
-                // Закрываем UI и убираем blur при нажатии кнопки Close
                 EffectManager.askEffectClearByID(45882, unturnedPlayer.Player.channel.owner.transportConnection);
                 unturnedPlayer.Player.setPluginWidgetFlag(EPluginWidgetFlags.Modal, false);
             }
@@ -606,19 +641,16 @@ namespace AdvancedWarps
             var player = UnturnedPlayer.FromCSteamID(steamID);
             var component = player.GetComponent<PlayerComponent>();
 
-            // Cancel teleport if damaged during teleport
             if (component != null && component.IsTeleporting && Configuration.Instance.CancelOnDamage)
             {
                 component.CancelTeleport("warp_cancel_damage");
             }
 
-            // Apply WarpProtect (immunity after teleport)
             if (shouldAllow && _warpProtect.ContainsKey(steamID) && _warpProtect[steamID] > DateTime.Now)
             {
                 shouldAllow = false;
             }
 
-            // Cancel teleport if the player dies
             if (shouldAllow && component != null && component.IsTeleporting && parameters.player.life.health - parameters.damage <= 0)
             {
                 component.CancelTeleport("warp_cancel_death");
@@ -636,14 +668,6 @@ namespace AdvancedWarps
             if (Assets.find(EAssetType.ITEM, (ushort)b) is ItemGunAsset)
             {
                 _warpProtect.Remove(player.playerID.steamID);
-
-                // Cancel teleport if shooting during teleport
-                var unturnedPlayer = UnturnedPlayer.FromSteamPlayer(player);
-                var component = unturnedPlayer.GetComponent<PlayerComponent>();
-                if (component != null && component.IsTeleporting && Configuration.Instance.CancelOnShooting)
-                {
-                    component.CancelTeleport("warp_cancel_shooting");
-                }
             }
         }
 
@@ -795,6 +819,9 @@ namespace AdvancedWarps
         [XmlAttribute]
         public int WarpId;
 
+        [XmlAttribute]
+        public bool IsActive = true;
+
         public List<SubWarp> SubWarps;
 
         public Warp(string name, int warpId)
@@ -802,11 +829,13 @@ namespace AdvancedWarps
             this.Name = name;
             this.WarpId = warpId;
             this.SubWarps = new List<SubWarp>();
+            this.IsActive = true;
         }
 
         public Warp()
         {
             this.SubWarps = new List<SubWarp>();
+            this.IsActive = false;
         }
     }
     public class SubWarp

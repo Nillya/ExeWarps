@@ -12,7 +12,8 @@ namespace AdvancedWarps
             if (__instance.player == null) return;
 
             var player = __instance.player;
-            var unturnedPlayer = UnturnedPlayer.FromSteamPlayer(player);
+            var unturnedPlayer = UnturnedPlayer.FromPlayer(player);
+
             var component = unturnedPlayer.GetComponent<PlayerComponent>();
 
             if (component != null && component.IsTeleporting && Plugin.Instance.Configuration.Instance.CancelOnShooting)
