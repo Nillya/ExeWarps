@@ -17,13 +17,13 @@ namespace AdvancedWarps
 
         public void LoadDefaults()
         {
-            DelayTeleportToWarp = 10;
+            DelayTeleportToWarp = 3;
             CancelOnDamage = true;
             CancelOnMovement = true;
             MovementCancelRadius = 2f;
             CancelOnShooting = true;
             NoBuildRadius = 5f;
-            WarpProtect = 3.5;
+            WarpProtect = 4;
             Warps = new List<Warp>();
             AdminWarps = new List<AdminWarp>();
         }

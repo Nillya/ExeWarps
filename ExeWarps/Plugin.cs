@@ -87,13 +87,13 @@ namespace AdvancedWarps
 
             if (buttonName.StartsWith("Warp_loc_"))
             {
-                int warpIndex;
-                if (int.TryParse(buttonName.Replace("Warp_loc_", ""), out warpIndex))
+                int warpId;
+                if (int.TryParse(buttonName.Replace("Warp_loc_", ""), out warpId))
                 {
-                    warpIndex--;
-                    if (warpIndex >= 0 && warpIndex < Plugin.Instance.Configuration.Instance.Warps.Count && Plugin.Instance.Configuration.Instance.Warps[warpIndex].IsActive)
+                    // Find warp by WarpId instead of index
+                    Warp warp = Plugin.Instance.Configuration.Instance.Warps.Find(w => w.WarpId == warpId && w.IsActive);
+                    if (warp != null)
                     {
-                        Warp warp = Plugin.Instance.Configuration.Instance.Warps[warpIndex];
                         if (warp.SubWarps.Count == 0)
                         {
                             new Transelation("warp_null", Array.Empty<object>()).execute(unturnedPlayer);

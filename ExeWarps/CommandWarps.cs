@@ -19,15 +19,25 @@ namespace AdvancedWarps
         {
             UnturnedPlayer player = (UnturnedPlayer)caller;
 
+            // Enable Modal flag for blur and mouse freedom
             player.Player.enablePluginWidgetFlag(EPluginWidgetFlags.Modal);
+
+            // Open UI with effect ID 45882
             EffectManager.sendUIEffect(45882, short.MaxValue, player.Player.channel.owner.transportConnection, true);
 
-            // Sort warps by WarpId and display up to 10
-            var activeWarps = Plugin.Instance.Configuration.Instance.Warps.Where(w => w.IsActive).OrderBy(w => w.WarpId).ToList();
-            for (int i = 0; i < 10; i++)
+            // Clear all UI slots first
+            for (int i = 1; i <= 10; i++)
             {
-                string warpName = i < activeWarps.Count ? activeWarps[i].Name : "";
-                EffectManager.sendUIEffectText(short.MaxValue, player.Player.channel.owner.transportConnection, true, $"Warp_loc_text_{i + 1}", warpName);
+                EffectManager.sendUIEffectText(short.MaxValue, player.Player.channel.owner.transportConnection, true, $"Warp_loc_text_{i}", "");
+            }
+            var activeWarps = Plugin.Instance.Configuration.Instance.Warps.Where(w => w.IsActive).ToList();
+            foreach (var warp in activeWarps)
+            {
+                int uiSlot = warp.WarpId; // Use WarpId as the UI slot
+                if (uiSlot >= 1 && uiSlot <= 10) // Only show warps with IDs 1-10
+                {
+                    EffectManager.sendUIEffectText(short.MaxValue, player.Player.channel.owner.transportConnection, true, $"Warp_loc_text_{uiSlot}", warp.Name);
+                }
             }
         }
     }
