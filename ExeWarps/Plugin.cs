@@ -50,6 +50,7 @@ namespace AdvancedWarps
                 translationList.Add("warp_list_empty", "No warps available. Color=red");
                 translationList.Add("admin_warp_list_header", "Admin warps: Color=cyan");
                 translationList.Add("warp_already_at_location", "A warp already exists at location [{0}]! Color=red");
+                translationList.Add("warp_near_loc_null", "Warp location not found. Color=red");
                 return translationList;
             }
         }

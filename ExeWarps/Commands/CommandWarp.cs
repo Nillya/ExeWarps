@@ -82,7 +82,7 @@ namespace AdvancedWarps
 
                     if (nearestLocation == null)
                     {
-                        new Transelation("warp_null", Array.Empty<object>()).execute(player);
+                        new Transelation("warp_near_loc_null", Array.Empty<object>()).execute(player);
                         return;
                     }
 
@@ -116,7 +116,11 @@ namespace AdvancedWarps
                     newWarp = new Warp(warpName, newWarpId);
                 }
 
-                newWarp.SubWarps.Add(new SubWarp(1, new SerializableVector3(playerPosition.x, playerPosition.y, playerPosition.z)));
+                if (Plugin.Instance.Configuration.Instance.AddSubWarpOnCreate) 
+                {
+                    newWarp.SubWarps.Add(new SubWarp(1, new SerializableVector3(playerPosition.x, playerPosition.y, playerPosition.z)));
+                }
+                
                 Plugin.Instance.Configuration.Instance.Warps.Add(newWarp);
 
                 Plugin.Instance.Configuration.Save();

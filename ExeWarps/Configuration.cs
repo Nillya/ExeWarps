@@ -13,6 +13,7 @@ namespace AdvancedWarps
         public float NoBuildRadius;
         public double WarpProtect;
         public bool AutoLocation;
+        public bool AddSubWarpOnCreate;
         public List<Warp> Warps;
         public List<AdminWarp> AdminWarps;
 
@@ -26,6 +27,7 @@ namespace AdvancedWarps
             NoBuildRadius = 5f;
             WarpProtect = 4;
             AutoLocation = true;
+            AddSubWarpOnCreate = true;
             Warps = new List<Warp>();
             AdminWarps = new List<AdminWarp>();
         }
