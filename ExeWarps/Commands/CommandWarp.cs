@@ -49,9 +49,10 @@ namespace AdvancedWarps
                 }
                 return;
             }
-            if (command[0].ToLower() == "add" && command.Length >= 2 && player.IsAdmin)
+            else if (command[0].ToLower() == "add" && command.Length >= 2 && player.IsAdmin)
             {
                 string warpName = command[1];
+
                 if (Plugin.Instance.Configuration.Instance.Warps.Any(w => w.Name != null && w.Name.ToLower() == warpName.ToLower()) ||
                     Plugin.Instance.Configuration.Instance.AdminWarps.Any(w => w.Name != null && w.Name.ToLower() == warpName.ToLower()))
                 {
@@ -59,25 +60,64 @@ namespace AdvancedWarps
                     return;
                 }
 
-                // Find the first inactive warp slot
-                Warp inactiveWarp = Plugin.Instance.Configuration.Instance.Warps.Find(w => !w.IsActive);
-                if (inactiveWarp != null)
+                Vector3 playerPosition = player.Position;
+                Warp newWarp;
+
+                if (Plugin.Instance.Configuration.Instance.AutoLocation)
                 {
-                    inactiveWarp.Name = warpName;
-                    inactiveWarp.SubWarps.Clear();
-                    inactiveWarp.IsActive = true;
+                    // Находим ближайшую известную локацию
+                    KnownLocation nearestLocation = null;
+                    float minDistance = float.MaxValue;
+                    var knownLocations = KnownLocationsProvider.GetKnownLocations();
+
+                    foreach (var location in knownLocations)
+                    {
+                        float distance = Vector3.Distance(playerPosition, (Vector3)location.Position);
+                        if (distance < minDistance)
+                        {
+                            minDistance = distance;
+                            nearestLocation = location;
+                        }
+                    }
+
+                    if (nearestLocation == null)
+                    {
+                        new Transelation("warp_null", Array.Empty<object>()).execute(player);
+                        return;
+                    }
+
+                    // Проверяем, есть ли уже активный варп с таким WarpId
+                    Warp existingWarp = Plugin.Instance.Configuration.Instance.Warps.Find(w => w.WarpId == nearestLocation.WarpId && w.IsActive);
+                    if (existingWarp != null)
+                    {
+                        new Transelation("warp_already_at_location", new object[] { nearestLocation.Name }).execute(player);
+                        return;
+                    }
+
+                    // Создаем новый варп с привязкой к известной локации
+                    newWarp = new Warp(warpName, nearestLocation.WarpId);
                 }
                 else
                 {
-                    // Find the smallest available WarpId
+                    // Находим первый свободный WarpId
+                    var existingWarpIds = Plugin.Instance.Configuration.Instance.Warps
+                        .Where(w => w.IsActive)
+                        .Select(w => w.WarpId)
+                        .OrderBy(id => id)
+                        .ToList();
+
                     int newWarpId = 1;
-                    while (Plugin.Instance.Configuration.Instance.Warps.Any(w => w.WarpId == newWarpId))
+                    while (existingWarpIds.Contains(newWarpId))
                     {
                         newWarpId++;
                     }
-                    Warp newWarp = new Warp(warpName, newWarpId);
-                    Plugin.Instance.Configuration.Instance.Warps.Add(newWarp);
+
+                    // Создаем новый варп с первым свободным WarpId
+                    newWarp = new Warp(warpName, newWarpId);
                 }
+
+                newWarp.SubWarps.Add(new SubWarp(1, new SerializableVector3(playerPosition.x, playerPosition.y, playerPosition.z)));
+                Plugin.Instance.Configuration.Instance.Warps.Add(newWarp);
 
                 Plugin.Instance.Configuration.Save();
                 new Transelation("warp_create_ok", new object[] { warpName }).execute(player);

@@ -75,15 +75,18 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Configuration.cs" />
-    <Compile Include="CommandWarp.cs" />
+    <Compile Include="Commands\CommandWarp.cs" />
+    <Compile Include="Adds\KnownLocationsProvider.cs" />
+    <Compile Include="Adds\KnownLocation.cs" />
     <Compile Include="PlayerComponent.cs" />
-    <Compile Include="FirePatch.cs" />
-    <Compile Include="Transelation.cs" />
-    <Compile Include="SerializableVector3.cs" />
+    <Compile Include="Adds\FirePatch.cs" />
+    <Compile Include="Adds\Transelation.cs" />
+    <Compile Include="Adds\SerializableVector3.cs" />
     <Compile Include="Warp.cs" />
     <Compile Include="Plugin.cs" />
-    <Compile Include="CommandWarps.cs" />
+    <Compile Include="Commands\CommandWarps.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

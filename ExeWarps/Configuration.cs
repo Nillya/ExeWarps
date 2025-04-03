@@ -12,6 +12,7 @@ namespace AdvancedWarps
         public bool CancelOnShooting;
         public float NoBuildRadius;
         public double WarpProtect;
+        public bool AutoLocation;
         public List<Warp> Warps;
         public List<AdminWarp> AdminWarps;
 
@@ -24,6 +25,7 @@ namespace AdvancedWarps
             CancelOnShooting = true;
             NoBuildRadius = 5f;
             WarpProtect = 4;
+            AutoLocation = true;
             Warps = new List<Warp>();
             AdminWarps = new List<AdminWarp>();
         }

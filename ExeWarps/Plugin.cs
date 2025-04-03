@@ -49,6 +49,7 @@ namespace AdvancedWarps
                 translationList.Add("warp_list_header", "Available warps: Color=yellow");
                 translationList.Add("warp_list_empty", "No warps available. Color=red");
                 translationList.Add("admin_warp_list_header", "Admin warps: Color=cyan");
+                translationList.Add("warp_already_at_location", "A warp already exists at location [{0}]! Color=red");
                 return translationList;
             }
         }
@@ -79,6 +80,20 @@ namespace AdvancedWarps
             var harmony = new Harmony("com.warps.exe");
             harmony.UnpatchAll("com.warps.exe");
         }
+
+        public static readonly List<KnownLocation> KnownLocations = new List<KnownLocation>
+        {
+            new KnownLocation("Summerside Military Base", new SerializableVector3(0, 0, 0), 1),
+            new KnownLocation("Stratford", new SerializableVector3(0, 0, 0), 2),
+            new KnownLocation("Alberton", new SerializableVector3(0, 0, 0), 3),
+            new KnownLocation("Belfast Airport", new SerializableVector3(0, 0, 0), 4),
+            new KnownLocation("Cape Rock", new SerializableVector3(0, 0, 0), 5),
+            new KnownLocation("Charlottetown", new SerializableVector3(0, 0, 0), 6),
+            new KnownLocation("Confederation Bridge", new SerializableVector3(0, 0, 0), 7),
+            new KnownLocation("Courtin Isle", new SerializableVector3(0, 0, 0), 8),
+            new KnownLocation("Fernwood Farm", new SerializableVector3(0, 0, 0), 9),
+            new KnownLocation("Holman Isle", new SerializableVector3(0, 0, 0), 10)
+        };
 
         private void OnEffectButtonClicked(Player player, string buttonName)
         {
