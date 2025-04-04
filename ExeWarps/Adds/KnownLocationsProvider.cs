@@ -17,7 +17,7 @@ namespace AdvancedWarps
                 new KnownLocation("Holman Isle", new SerializableVector3(-743.1719f, 55.1531219f, -766.3828f), 6),
                 new KnownLocation("Tignish Farm", new SerializableVector3(547.726563f, 38.39512f, -747.1172f), 7),
                 new KnownLocation("Montague", new SerializableVector3(295.3047f, 34.1097946f, -75.07031f), 8),
-                new KnownLocation("Courtin Isle", new SerializableVector3(826.726563f, 47.8821335f, 134.679688f), 8),
+                new KnownLocation("Courtin Isle", new SerializableVector3(826.726563f, 47.8821335f, 134.679688f), 9),
                 new KnownLocation("Belfast Airport", new SerializableVector3(727.085938f, 34.3646622f, 674.03125f), 10),
 
                 // Оставшиеся локации из полного списка с нулевыми координатами
