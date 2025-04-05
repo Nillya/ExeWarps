@@ -9,8 +9,13 @@ using SDG.Unturned;
 using Steamworks;
 using UnityEngine;
 using HarmonyLib;
+using AdvancedWarps.Models;
+using AdvancedWarps.Commands;
+using AdvancedWarps.Harmony;
+using AdvancedWarps.Utilities;
+using static Rocket.Unturned.Events.UnturnedPlayerEvents;
 
-namespace AdvancedWarps
+namespace AdvancedWarps.Core
 {
     public class Plugin : RocketPlugin<Configuration>
     {
@@ -60,26 +65,35 @@ namespace AdvancedWarps
             Instance = this;
             Warping = new List<CSteamID>();
             _warpProtect = new Dictionary<CSteamID, DateTime>();
-            var harmony = new Harmony("com.warps.exe");
+            var harmony = new HarmonyLib.Harmony("com.warps.exe");
             harmony.PatchAll();
             U.Events.OnPlayerDisconnected += EventsOnPlayerDisconnected;
+            UnturnedPlayerEvents.OnPlayerDeath += OnPlayerDeath;
             BarricadeManager.onDeployBarricadeRequested = (DeployBarricadeRequestHandler)Delegate.Combine(BarricadeManager.onDeployBarricadeRequested, new DeployBarricadeRequestHandler(OnDeployBarricadeRequested));
             StructureManager.onDeployStructureRequested = (DeployStructureRequestHandler)Delegate.Combine(StructureManager.onDeployStructureRequested, new DeployStructureRequestHandler(OnDeployStructureRequested));
             DamageTool.damagePlayerRequested += DamageToolOnDamagePlayerRequested;
-            SteamChannel.onTriggerSend = (TriggerSend)Delegate.Combine(SteamChannel.onTriggerSend, new TriggerSend(OnTriggerSend));
             EffectManager.onEffectButtonClicked += OnEffectButtonClicked;
         }
 
         protected override void Unload()
         {
             U.Events.OnPlayerDisconnected -= EventsOnPlayerDisconnected;
+            UnturnedPlayerEvents.OnPlayerDeath -= OnPlayerDeath;
             BarricadeManager.onDeployBarricadeRequested = (DeployBarricadeRequestHandler)Delegate.Remove(BarricadeManager.onDeployBarricadeRequested, new DeployBarricadeRequestHandler(OnDeployBarricadeRequested));
             StructureManager.onDeployStructureRequested = (DeployStructureRequestHandler)Delegate.Remove(StructureManager.onDeployStructureRequested, new DeployStructureRequestHandler(OnDeployStructureRequested));
             DamageTool.damagePlayerRequested -= DamageToolOnDamagePlayerRequested;
-            SteamChannel.onTriggerSend = (TriggerSend)Delegate.Remove(SteamChannel.onTriggerSend, new TriggerSend(OnTriggerSend));
             EffectManager.onEffectButtonClicked -= OnEffectButtonClicked;
-            var harmony = new Harmony("com.warps.exe");
+            var harmony = new HarmonyLib.Harmony("com.warps.exe");
             harmony.UnpatchAll("com.warps.exe");
+        }
+
+        private void OnPlayerDeath(UnturnedPlayer player, EDeathCause cause, ELimb limb, CSteamID murderer)
+        {
+            var component = player.GetComponent<PlayerComponent>();
+            if (component != null && component.IsTeleporting)
+            {
+                component.CancelTeleport("warp_cancel_death");
+            }
         }
 
         public static readonly List<KnownLocation> KnownLocations = new List<KnownLocation>
@@ -217,33 +231,51 @@ namespace AdvancedWarps
                 shouldAllow = false;
             }
 
-            if (shouldAllow && component != null && component.IsTeleporting && parameters.player.life.health - parameters.damage <= 0)
+            //if (shouldAllow && component != null && component.IsTeleporting && parameters.player.life.health - parameters.damage <= 0)
+            //{
+            //    component.CancelTeleport("warp_cancel_death");
+            //}
+        }
+
+        //private void OnTriggerSend(SteamPlayer player, string s, ESteamCall mode, ESteamPacket type, object[] arguments)
+        //{
+        //    if (s != "tellEquip" || !_warpProtect.ContainsKey(player.playerID.steamID) || _warpProtect[player.playerID.steamID] < DateTime.Now)
+        //    {
+        //        return;
+        //    }
+
+        //    byte b = (byte)arguments[3];
+        //    if (Assets.find(EAssetType.ITEM, (ushort)b) is ItemGunAsset)
+        //    {
+        //        _warpProtect.Remove(player.playerID.steamID);
+        //    }
+        //}
+        private void OnUseableUsed(PlayerEquipment equipment, Useable useable)
+        {
+            var player = UnturnedPlayer.FromPlayer(equipment.player);
+            if (player == null) return;
+
+            // Проверяем, является ли используемый предмет оружием
+            if (equipment.asset is ItemWeaponAsset)
             {
-                component.CancelTeleport("warp_cancel_death");
+                if (_warpProtect.ContainsKey(player.CSteamID))
+                {
+                    _warpProtect.Remove(player.CSteamID);
+                }
             }
         }
 
-        private void OnTriggerSend(SteamPlayer player, string s, ESteamCall mode, ESteamPacket type, object[] arguments)
+        public void RemoveWarpProtect(CSteamID playerId)
         {
-            if (s != "tellEquip" || !_warpProtect.ContainsKey(player.playerID.steamID) || _warpProtect[player.playerID.steamID] < DateTime.Now)
+            if (_warpProtect.ContainsKey(playerId))
             {
-                return;
-            }
-
-            byte b = (byte)arguments[3];
-            if (Assets.find(EAssetType.ITEM, (ushort)b) is ItemGunAsset)
-            {
-                _warpProtect.Remove(player.playerID.steamID);
+                _warpProtect.Remove(playerId);
             }
         }
 
         public void AfterWarp(UnturnedPlayer player)
         {
             Warping.Remove(player.CSteamID);
-            if (player.Player.equipment.isEquipped && player.Player.equipment.asset is ItemGunAsset)
-            {
-                return;
-            }
             _warpProtect[player.CSteamID] = DateTime.Now.AddSeconds(Configuration.Instance.WarpProtect);
         }
     }

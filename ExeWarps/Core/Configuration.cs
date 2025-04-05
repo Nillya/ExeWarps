@@ -1,7 +1,11 @@
 ﻿using System.Collections.Generic;
 using Rocket.API;
+using AdvancedWarps.Models;
+using AdvancedWarps.Commands;
+using AdvancedWarps.Harmony;
+using AdvancedWarps.Utilities;
 
-namespace AdvancedWarps
+namespace AdvancedWarps.Core
 {
     public class Configuration : IDefaultable, IRocketPluginConfiguration
     {

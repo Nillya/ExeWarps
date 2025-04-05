@@ -5,8 +5,12 @@ using Rocket.API;
 using Rocket.Unturned.Chat;
 using Rocket.Unturned.Player;
 using UnityEngine;
+using AdvancedWarps.Core;
+using AdvancedWarps.Models;
+using AdvancedWarps.Harmony;
+using AdvancedWarps.Utilities;
 
-namespace AdvancedWarps
+namespace AdvancedWarps.Commands
 {
     public class CommandWarp : IRocketCommand
     {

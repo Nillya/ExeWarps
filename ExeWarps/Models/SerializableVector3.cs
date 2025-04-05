@@ -1,6 +1,10 @@
 ﻿using System.Xml.Serialization;
+using AdvancedWarps.Core;
+using AdvancedWarps.Commands;
+using AdvancedWarps.Harmony;
+using AdvancedWarps.Utilities;
 
-namespace AdvancedWarps
+namespace AdvancedWarps.Models
 {
     [XmlRoot("SerializableVector3")]
     public class SerializableVector3

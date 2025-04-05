@@ -74,16 +74,19 @@
     <Reference Include="System.Core" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Configuration.cs" />
+    <Compile Include="Harmony\ThrowablePatch.cs" />
+    <Compile Include="Harmony\PunchPatch.cs" />
+    <Compile Include="Harmony\MeleePatch.cs" />
+    <Compile Include="Core\Configuration.cs" />
     <Compile Include="Commands\CommandWarp.cs" />
-    <Compile Include="Adds\KnownLocationsProvider.cs" />
-    <Compile Include="Adds\KnownLocation.cs" />
-    <Compile Include="PlayerComponent.cs" />
-    <Compile Include="Adds\FirePatch.cs" />
-    <Compile Include="Adds\Transelation.cs" />
-    <Compile Include="Adds\SerializableVector3.cs" />
-    <Compile Include="Warp.cs" />
-    <Compile Include="Plugin.cs" />
+    <Compile Include="Utilities\KnownLocationsProvider.cs" />
+    <Compile Include="Models\KnownLocation.cs" />
+    <Compile Include="Core\PlayerComponent.cs" />
+    <Compile Include="Harmony\FirePatch.cs" />
+    <Compile Include="Utilities\Transelation.cs" />
+    <Compile Include="Models\SerializableVector3.cs" />
+    <Compile Include="Models\Warp.cs" />
+    <Compile Include="Core\Plugin.cs" />
     <Compile Include="Commands\CommandWarps.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

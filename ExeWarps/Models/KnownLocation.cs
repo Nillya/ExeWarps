@@ -1,7 +1,11 @@
 ﻿using System.Collections.Generic;
 using Rocket.API;
+using AdvancedWarps.Core;
+using AdvancedWarps.Commands;
+using AdvancedWarps.Harmony;
+using AdvancedWarps.Utilities;
 
-namespace AdvancedWarps
+namespace AdvancedWarps.Models
 {
     public class KnownLocation
     {

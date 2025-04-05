@@ -3,8 +3,12 @@ using Rocket.Unturned.Player;
 using SDG.Unturned;
 using System.Collections.Generic;
 using System.Linq;
+using AdvancedWarps.Core;
+using AdvancedWarps.Models;
+using AdvancedWarps.Harmony;
+using AdvancedWarps.Utilities;
 
-namespace AdvancedWarps
+namespace AdvancedWarps.Commands
 {
     public class CommandWarps : IRocketCommand
     {

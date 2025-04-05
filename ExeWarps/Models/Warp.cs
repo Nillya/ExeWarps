@@ -1,9 +1,12 @@
-﻿// Warp.cs
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Xml.Serialization;
 using UnityEngine;
+using AdvancedWarps.Core;
+using AdvancedWarps.Commands;
+using AdvancedWarps.Harmony;
+using AdvancedWarps.Utilities;
 
-namespace AdvancedWarps
+namespace AdvancedWarps.Models
 {
     public class Warp
     {

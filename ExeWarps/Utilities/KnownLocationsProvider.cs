@@ -1,6 +1,10 @@
 ﻿using System.Collections.Generic;
+using AdvancedWarps.Core;
+using AdvancedWarps.Models;
+using AdvancedWarps.Commands;
+using AdvancedWarps.Harmony;
 
-namespace AdvancedWarps
+namespace AdvancedWarps.Utilities
 {
     public static class KnownLocationsProvider
     {

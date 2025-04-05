@@ -2,8 +2,12 @@
 using SDG.Unturned;
 using UnityEngine;
 using System;
+using AdvancedWarps.Models;
+using AdvancedWarps.Commands;
+using AdvancedWarps.Harmony;
+using AdvancedWarps.Utilities;
 
-namespace AdvancedWarps
+namespace AdvancedWarps.Core
 {
     public class PlayerComponent : UnturnedPlayerComponent
     {

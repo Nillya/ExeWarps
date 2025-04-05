@@ -3,8 +3,12 @@ using Rocket.Unturned.Chat;
 using Rocket.Unturned.Player;
 using SDG.Unturned;
 using UnityEngine;
+using AdvancedWarps.Core;
+using AdvancedWarps.Models;
+using AdvancedWarps.Commands;
+using AdvancedWarps.Harmony;
 
-namespace AdvancedWarps
+namespace AdvancedWarps.Utilities
 {
     public class Transelation
     {
