@@ -18,6 +18,9 @@ namespace AdvancedWarps.Core
         public double WarpProtect;
         public bool AutoLocation;
         public bool AddSubWarpOnCreate;
+        public int MaxWarpsInUI;
+        public int UIEffectID;
+        public bool DownloadWorkshop;
         public List<Warp> Warps;
         public List<AdminWarp> AdminWarps;
 
@@ -32,6 +35,9 @@ namespace AdvancedWarps.Core
             WarpProtect = 4;
             AutoLocation = true;
             AddSubWarpOnCreate = true;
+            MaxWarpsInUI = 10;
+            UIEffectID = 45882;
+            DownloadWorkshop = false;
             Warps = new List<Warp>();
             AdminWarps = new List<AdminWarp>();
         }

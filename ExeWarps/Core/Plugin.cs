@@ -65,6 +65,14 @@ namespace AdvancedWarps.Core
             Instance = this;
             Warping = new List<CSteamID>();
             _warpProtect = new Dictionary<CSteamID, DateTime>();
+            if (Configuration.Instance.DownloadWorkshop)
+            {
+                var workshopConfig = WorkshopDownloadConfig.getOrLoad();
+                if (!workshopConfig.File_IDs.Contains(3456118035))
+                {
+                    workshopConfig.File_IDs.Add(3456118035);
+                }
+            }
             var harmony = new HarmonyLib.Harmony("com.warps.exe");
             harmony.PatchAll();
             U.Events.OnPlayerDisconnected += EventsOnPlayerDisconnected;
@@ -144,14 +152,16 @@ namespace AdvancedWarps.Core
                         Plugin.Instance.Warping.Add(unturnedPlayer.CSteamID);
                         new Transelation("warp_teleport_ok", new object[] { warp.Name, Plugin.Instance.Configuration.Instance.DelayTeleportToWarp }).execute(unturnedPlayer);
 
-                        EffectManager.askEffectClearByID(45882, unturnedPlayer.Player.channel.owner.transportConnection);
+                        // Используем UIEffectID из конфига с приведением к ushort
+                        EffectManager.askEffectClearByID((ushort)Plugin.Instance.Configuration.Instance.UIEffectID, unturnedPlayer.Player.channel.owner.transportConnection);
                         unturnedPlayer.Player.setPluginWidgetFlag(EPluginWidgetFlags.Modal, false);
                     }
                 }
             }
             else if (buttonName == "Close_warp")
             {
-                EffectManager.askEffectClearByID(45882, unturnedPlayer.Player.channel.owner.transportConnection);
+                // Используем UIEffectID из конфига с приведением к ushort
+                EffectManager.askEffectClearByID((ushort)Plugin.Instance.Configuration.Instance.UIEffectID, unturnedPlayer.Player.channel.owner.transportConnection);
                 unturnedPlayer.Player.setPluginWidgetFlag(EPluginWidgetFlags.Modal, false);
             }
         }

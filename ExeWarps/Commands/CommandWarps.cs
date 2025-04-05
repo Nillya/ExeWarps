@@ -5,8 +5,6 @@ using System.Collections.Generic;
 using System.Linq;
 using AdvancedWarps.Core;
 using AdvancedWarps.Models;
-using AdvancedWarps.Harmony;
-using AdvancedWarps.Utilities;
 
 namespace AdvancedWarps.Commands
 {
@@ -26,19 +24,22 @@ namespace AdvancedWarps.Commands
             // Enable Modal flag for blur and mouse freedom
             player.Player.enablePluginWidgetFlag(EPluginWidgetFlags.Modal);
 
-            // Open UI with effect ID 45882
-            EffectManager.sendUIEffect(45882, short.MaxValue, player.Player.channel.owner.transportConnection, true);
+            // Open UI with effect ID from configuration
+            EffectManager.sendUIEffect((ushort)Plugin.Instance.Configuration.Instance.UIEffectID, short.MaxValue, player.Player.channel.owner.transportConnection, true);
 
-            // Clear all UI slots first
-            for (int i = 1; i <= 10; i++)
+            // Clear all UI slots first up to MaxWarpsInUI
+            int maxSlots = Plugin.Instance.Configuration.Instance.MaxWarpsInUI;
+            for (int i = 1; i <= maxSlots; i++)
             {
                 EffectManager.sendUIEffectText(short.MaxValue, player.Player.channel.owner.transportConnection, true, $"Warp_loc_text_{i}", "");
             }
+
+            // Fill UI slots with active warps
             var activeWarps = Plugin.Instance.Configuration.Instance.Warps.Where(w => w.IsActive).ToList();
             foreach (var warp in activeWarps)
             {
                 int uiSlot = warp.WarpId; // Use WarpId as the UI slot
-                if (uiSlot >= 1 && uiSlot <= 10) // Only show warps with IDs 1-10
+                if (uiSlot >= 1 && uiSlot <= maxSlots) // Ограничиваем количеством слотов из конфига
                 {
                     EffectManager.sendUIEffectText(short.MaxValue, player.Player.channel.owner.transportConnection, true, $"Warp_loc_text_{uiSlot}", warp.Name);
                 }
