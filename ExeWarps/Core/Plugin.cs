@@ -14,6 +14,7 @@ using AdvancedWarps.Commands;
 using AdvancedWarps.Harmony;
 using AdvancedWarps.Utilities;
 using static Rocket.Unturned.Events.UnturnedPlayerEvents;
+using System.ComponentModel;
 
 namespace AdvancedWarps.Core
 {
@@ -38,6 +39,9 @@ namespace AdvancedWarps.Core
                 translationList.Add("warp_cancel_damage", "Teleportation canceled due to damage. Color=red");
                 translationList.Add("warp_cancel_movement", "Teleportation canceled due to movement. Color=red");
                 translationList.Add("warp_cancel_shooting", "Teleportation canceled due to shooting. Color=red");
+                translationList.Add("warp_cancel_melee", "Teleportation canceled due to melee attack. Color=red");
+                translationList.Add("warp_cancel_throwable", "Teleportation canceled due to throwing. Color=red");
+                translationList.Add("warp_cancel_punch", "Teleportation canceled due to punch. Color=red");
                 translationList.Add("warp_cancel_disconnect", "Teleportation canceled due to disconnection. Color=red");
                 translationList.Add("warp_cancel_death", "Teleportation canceled due to death. Color=red");
                 translationList.Add("already_delay", "You are already waiting to be warped. Color=red");
@@ -56,6 +60,8 @@ namespace AdvancedWarps.Core
                 translationList.Add("admin_warp_list_header", "Admin warps: Color=cyan");
                 translationList.Add("warp_already_at_location", "A warp already exists at location [{0}]! Color=red");
                 translationList.Add("warp_near_loc_null", "Warp location not found. Color=red");
+                translationList.Add("warp_protect_active", "Player is under warp protection and cannot be damaged. Color=red");
+                translationList.Add("warp_protect_expired", "Your warp protection has expired. Color=yellow");
                 return translationList;
             }
         }
@@ -77,6 +83,7 @@ namespace AdvancedWarps.Core
             harmony.PatchAll();
             U.Events.OnPlayerDisconnected += EventsOnPlayerDisconnected;
             UnturnedPlayerEvents.OnPlayerDeath += OnPlayerDeath;
+            UnturnedPlayerEvents.OnPlayerUpdateGesture += OnPlayerUpdateGesture;
             BarricadeManager.onDeployBarricadeRequested = (DeployBarricadeRequestHandler)Delegate.Combine(BarricadeManager.onDeployBarricadeRequested, new DeployBarricadeRequestHandler(OnDeployBarricadeRequested));
             StructureManager.onDeployStructureRequested = (DeployStructureRequestHandler)Delegate.Combine(StructureManager.onDeployStructureRequested, new DeployStructureRequestHandler(OnDeployStructureRequested));
             DamageTool.damagePlayerRequested += DamageToolOnDamagePlayerRequested;
@@ -87,6 +94,7 @@ namespace AdvancedWarps.Core
         {
             U.Events.OnPlayerDisconnected -= EventsOnPlayerDisconnected;
             UnturnedPlayerEvents.OnPlayerDeath -= OnPlayerDeath;
+            UnturnedPlayerEvents.OnPlayerUpdateGesture -= OnPlayerUpdateGesture;
             BarricadeManager.onDeployBarricadeRequested = (DeployBarricadeRequestHandler)Delegate.Remove(BarricadeManager.onDeployBarricadeRequested, new DeployBarricadeRequestHandler(OnDeployBarricadeRequested));
             StructureManager.onDeployStructureRequested = (DeployStructureRequestHandler)Delegate.Remove(StructureManager.onDeployStructureRequested, new DeployStructureRequestHandler(OnDeployStructureRequested));
             DamageTool.damagePlayerRequested -= DamageToolOnDamagePlayerRequested;
@@ -163,6 +171,19 @@ namespace AdvancedWarps.Core
                 // Используем UIEffectID из конфига с приведением к ushort
                 EffectManager.askEffectClearByID((ushort)Plugin.Instance.Configuration.Instance.UIEffectID, unturnedPlayer.Player.channel.owner.transportConnection);
                 unturnedPlayer.Player.setPluginWidgetFlag(EPluginWidgetFlags.Modal, false);
+            }
+        }
+        private void OnPlayerUpdateGesture(UnturnedPlayer player, PlayerGesture gesture)
+        {
+            if (gesture != PlayerGesture.PunchLeft && gesture != PlayerGesture.PunchRight) return;
+            if (Plugin.Instance == null) return;
+
+            Plugin.Instance.RemoveWarpProtect(player.CSteamID);
+
+            PlayerComponent component = player.GetComponent<PlayerComponent>();
+            if (component != null && component.IsTeleporting && Configuration.Instance.CancelOnShooting)
+            {
+                component.CancelTeleport("warp_cancel_punch");
             }
         }
 

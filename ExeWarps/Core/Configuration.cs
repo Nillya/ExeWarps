@@ -37,7 +37,7 @@ namespace AdvancedWarps.Core
             AddSubWarpOnCreate = true;
             MaxWarpsInUI = 10;
             UIEffectID = 45882;
-            DownloadWorkshop = false;
+            DownloadWorkshop = true;
             Warps = new List<Warp>();
             AdminWarps = new List<AdminWarp>();
         }

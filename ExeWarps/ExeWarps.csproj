@@ -6,7 +6,7 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <OutputType>Library</OutputType>
-    <LangVersion>7.3</LangVersion>
+    <LangVersion>9.0</LangVersion>
     <AssemblyName>ExeWarps</AssemblyName>
     <TargetFrameworkIdentifier>.NETFramework</TargetFrameworkIdentifier>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
@@ -74,9 +74,6 @@
     <Reference Include="System.Core" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Harmony\ThrowablePatch.cs" />
-    <Compile Include="Harmony\PunchPatch.cs" />
-    <Compile Include="Harmony\MeleePatch.cs" />
     <Compile Include="Core\Configuration.cs" />
     <Compile Include="Commands\CommandWarp.cs" />
     <Compile Include="Utilities\KnownLocationsProvider.cs" />

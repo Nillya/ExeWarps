@@ -356,8 +356,6 @@ using System.Collections.Generic;
 using System.Linq;
 using AdvancedWarps.Core;
 using AdvancedWarps.Models;
-using AdvancedWarps.Harmony;
-using AdvancedWarps.Utilities;
 
 namespace AdvancedWarps.Commands
 {
@@ -377,19 +375,22 @@ namespace AdvancedWarps.Commands
             // Enable Modal flag for blur and mouse freedom
             player.Player.enablePluginWidgetFlag(EPluginWidgetFlags.Modal);
 
-            // Open UI with effect ID 45882
-            EffectManager.sendUIEffect(45882, short.MaxValue, player.Player.channel.owner.transportConnection, true);
+            // Open UI with effect ID from configuration
+            EffectManager.sendUIEffect((ushort)Plugin.Instance.Configuration.Instance.UIEffectID, short.MaxValue, player.Player.channel.owner.transportConnection, true);
 
-            // Clear all UI slots first
-            for (int i = 1; i <= 10; i++)
+            // Clear all UI slots first up to MaxWarpsInUI
+            int maxSlots = Plugin.Instance.Configuration.Instance.MaxWarpsInUI;
+            for (int i = 1; i <= maxSlots; i++)
             {
                 EffectManager.sendUIEffectText(short.MaxValue, player.Player.channel.owner.transportConnection, true, $"Warp_loc_text_{i}", "");
             }
+
+            // Fill UI slots with active warps
             var activeWarps = Plugin.Instance.Configuration.Instance.Warps.Where(w => w.IsActive).ToList();
             foreach (var warp in activeWarps)
             {
                 int uiSlot = warp.WarpId; // Use WarpId as the UI slot
-                if (uiSlot >= 1 && uiSlot <= 10) // Only show warps with IDs 1-10
+                if (uiSlot >= 1 && uiSlot <= maxSlots) // Ограничиваем количеством слотов из конфига
                 {
                     EffectManager.sendUIEffectText(short.MaxValue, player.Player.channel.owner.transportConnection, true, $"Warp_loc_text_{uiSlot}", warp.Name);
                 }
@@ -419,6 +420,9 @@ namespace AdvancedWarps.Core
         public double WarpProtect;
         public bool AutoLocation;
         public bool AddSubWarpOnCreate;
+        public int MaxWarpsInUI;
+        public int UIEffectID;
+        public bool DownloadWorkshop;
         public List<Warp> Warps;
         public List<AdminWarp> AdminWarps;
 
@@ -433,6 +437,9 @@ namespace AdvancedWarps.Core
             WarpProtect = 4;
             AutoLocation = true;
             AddSubWarpOnCreate = true;
+            MaxWarpsInUI = 10;
+            UIEffectID = 45882;
+            DownloadWorkshop = true;
             Warps = new List<Warp>();
             AdminWarps = new List<AdminWarp>();
         }
@@ -520,6 +527,7 @@ using AdvancedWarps.Commands;
 using AdvancedWarps.Harmony;
 using AdvancedWarps.Utilities;
 using static Rocket.Unturned.Events.UnturnedPlayerEvents;
+using System.ComponentModel;
 
 namespace AdvancedWarps.Core
 {
@@ -544,6 +552,9 @@ namespace AdvancedWarps.Core
                 translationList.Add("warp_cancel_damage", "Teleportation canceled due to damage. Color=red");
                 translationList.Add("warp_cancel_movement", "Teleportation canceled due to movement. Color=red");
                 translationList.Add("warp_cancel_shooting", "Teleportation canceled due to shooting. Color=red");
+                translationList.Add("warp_cancel_melee", "Teleportation canceled due to melee attack. Color=red");
+                translationList.Add("warp_cancel_throwable", "Teleportation canceled due to throwing. Color=red");
+                translationList.Add("warp_cancel_punch", "Teleportation canceled due to punch. Color=red");
                 translationList.Add("warp_cancel_disconnect", "Teleportation canceled due to disconnection. Color=red");
                 translationList.Add("warp_cancel_death", "Teleportation canceled due to death. Color=red");
                 translationList.Add("already_delay", "You are already waiting to be warped. Color=red");
@@ -562,6 +573,8 @@ namespace AdvancedWarps.Core
                 translationList.Add("admin_warp_list_header", "Admin warps: Color=cyan");
                 translationList.Add("warp_already_at_location", "A warp already exists at location [{0}]! Color=red");
                 translationList.Add("warp_near_loc_null", "Warp location not found. Color=red");
+                translationList.Add("warp_protect_active", "Player is under warp protection and cannot be damaged. Color=red");
+                translationList.Add("warp_protect_expired", "Your warp protection has expired. Color=yellow");
                 return translationList;
             }
         }
@@ -571,10 +584,19 @@ namespace AdvancedWarps.Core
             Instance = this;
             Warping = new List<CSteamID>();
             _warpProtect = new Dictionary<CSteamID, DateTime>();
+            if (Configuration.Instance.DownloadWorkshop)
+            {
+                var workshopConfig = WorkshopDownloadConfig.getOrLoad();
+                if (!workshopConfig.File_IDs.Contains(3456118035))
+                {
+                    workshopConfig.File_IDs.Add(3456118035);
+                }
+            }
             var harmony = new HarmonyLib.Harmony("com.warps.exe");
             harmony.PatchAll();
             U.Events.OnPlayerDisconnected += EventsOnPlayerDisconnected;
             UnturnedPlayerEvents.OnPlayerDeath += OnPlayerDeath;
+            UnturnedPlayerEvents.OnPlayerUpdateGesture += OnPlayerUpdateGesture;
             BarricadeManager.onDeployBarricadeRequested = (DeployBarricadeRequestHandler)Delegate.Combine(BarricadeManager.onDeployBarricadeRequested, new DeployBarricadeRequestHandler(OnDeployBarricadeRequested));
             StructureManager.onDeployStructureRequested = (DeployStructureRequestHandler)Delegate.Combine(StructureManager.onDeployStructureRequested, new DeployStructureRequestHandler(OnDeployStructureRequested));
             DamageTool.damagePlayerRequested += DamageToolOnDamagePlayerRequested;
@@ -585,6 +607,7 @@ namespace AdvancedWarps.Core
         {
             U.Events.OnPlayerDisconnected -= EventsOnPlayerDisconnected;
             UnturnedPlayerEvents.OnPlayerDeath -= OnPlayerDeath;
+            UnturnedPlayerEvents.OnPlayerUpdateGesture -= OnPlayerUpdateGesture;
             BarricadeManager.onDeployBarricadeRequested = (DeployBarricadeRequestHandler)Delegate.Remove(BarricadeManager.onDeployBarricadeRequested, new DeployBarricadeRequestHandler(OnDeployBarricadeRequested));
             StructureManager.onDeployStructureRequested = (DeployStructureRequestHandler)Delegate.Remove(StructureManager.onDeployStructureRequested, new DeployStructureRequestHandler(OnDeployStructureRequested));
             DamageTool.damagePlayerRequested -= DamageToolOnDamagePlayerRequested;
@@ -650,15 +673,30 @@ namespace AdvancedWarps.Core
                         Plugin.Instance.Warping.Add(unturnedPlayer.CSteamID);
                         new Transelation("warp_teleport_ok", new object[] { warp.Name, Plugin.Instance.Configuration.Instance.DelayTeleportToWarp }).execute(unturnedPlayer);
 
-                        EffectManager.askEffectClearByID(45882, unturnedPlayer.Player.channel.owner.transportConnection);
+                        // Используем UIEffectID из конфига с приведением к ushort
+                        EffectManager.askEffectClearByID((ushort)Plugin.Instance.Configuration.Instance.UIEffectID, unturnedPlayer.Player.channel.owner.transportConnection);
                         unturnedPlayer.Player.setPluginWidgetFlag(EPluginWidgetFlags.Modal, false);
                     }
                 }
             }
             else if (buttonName == "Close_warp")
             {
-                EffectManager.askEffectClearByID(45882, unturnedPlayer.Player.channel.owner.transportConnection);
+                // Используем UIEffectID из конфига с приведением к ushort
+                EffectManager.askEffectClearByID((ushort)Plugin.Instance.Configuration.Instance.UIEffectID, unturnedPlayer.Player.channel.owner.transportConnection);
                 unturnedPlayer.Player.setPluginWidgetFlag(EPluginWidgetFlags.Modal, false);
+            }
+        }
+        private void OnPlayerUpdateGesture(UnturnedPlayer player, PlayerGesture gesture)
+        {
+            if (gesture != PlayerGesture.PunchLeft && gesture != PlayerGesture.PunchRight) return;
+            if (Plugin.Instance == null) return;
+
+            Plugin.Instance.RemoveWarpProtect(player.CSteamID);
+
+            PlayerComponent component = player.GetComponent<PlayerComponent>();
+            if (component != null && component.IsTeleporting && Configuration.Instance.CancelOnShooting)
+            {
+                component.CancelTeleport("warp_cancel_punch");
             }
         }
 
@@ -792,31 +830,58 @@ namespace AdvancedWarps.Core
 using Rocket.Unturned.Player;
 using SDG.Unturned;
 using AdvancedWarps.Core;
-using AdvancedWarps.Models;
-using AdvancedWarps.Commands;
 using AdvancedWarps.Utilities;
+using System;
 
 namespace AdvancedWarps.Harmony
 {
-    [HarmonyPatch(typeof(UseableGun), "fire")]
-    public class FirePatch
+    [HarmonyPatch(typeof(PlayerEquipment), "use")]
+    public class EquipmentUsePatch
     {
-        static void Prefix(UseableGun __instance)
+        static void Prefix(PlayerEquipment __instance)
         {
-            if (__instance.player == null) return;
+            // Проверяем наличие игрока и используемого предмета
+            if (__instance?.player == null || __instance.useable == null)
+                return;
 
-            var player = __instance.player;
-            var unturnedPlayer = UnturnedPlayer.FromPlayer(player);
-            var component = unturnedPlayer.GetComponent<PlayerComponent>();
+            // Получаем Rocket-объект игрока
+            UnturnedPlayer player = UnturnedPlayer.FromPlayer(__instance.player);
+            if (player == null)
+                return;
 
-            // Отмена телепортации при выстреле
-            if (component != null && component.IsTeleporting && Plugin.Instance.Configuration.Instance.CancelOnShooting)
+            // Получаем компонент игрока
+            PlayerComponent component = player.GetComponent<PlayerComponent>();
+            if (component == null)
+                return;
+
+            // Определяем тип используемого предмета и соответствующий ключ перевода
+            string translationKey = null;
+            if (__instance.useable is UseableGun)
             {
-                component.CancelTeleport("warp_cancel_shooting");
+                translationKey = "warp_cancel_shooting";
+            }
+            else if (__instance.useable is UseableThrowable)
+            {
+                translationKey = "warp_cancel_throwable";
+            }
+            else if (__instance.useable is UseableMelee)
+            {
+                translationKey = "warp_cancel_melee";
             }
 
-            // Снятие WarpProtect при выстреле
-            Plugin.Instance.RemoveWarpProtect(unturnedPlayer.CSteamID);
+            // Если предмет подпадает под одну из категорий
+            if (translationKey != null)
+            {
+                // Снимаем защиту от варпа
+                Plugin.Instance.RemoveWarpProtect(player.CSteamID);
+
+                // Отменяем телепортацию, если она активна и включена опция CancelOnShooting
+                if (component.IsTeleporting && Plugin.Instance.Configuration.Instance.CancelOnShooting)
+                {
+                    new Transelation(translationKey, Array.Empty<object>()).execute(player);
+                    component.CancelTeleport(null); // Сообщение уже отправлено через Transelation
+                }
+            }
         }
     }
 }
