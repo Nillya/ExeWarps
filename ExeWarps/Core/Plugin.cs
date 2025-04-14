@@ -22,7 +22,8 @@ namespace AdvancedWarps.Core
     {
         public static Plugin Instance;
         public List<CSteamID> Warping;
-        private Dictionary<CSteamID, DateTime> _warpProtect;
+        internal Dictionary<CSteamID, DateTime> _warpProtect;
+        private Dictionary<CSteamID, DateTime> _lastProtectMessage;
 
         public override TranslationList DefaultTranslations
         {
@@ -60,8 +61,9 @@ namespace AdvancedWarps.Core
                 translationList.Add("admin_warp_list_header", "Admin warps: Color=cyan");
                 translationList.Add("warp_already_at_location", "A warp already exists at location [{0}]! Color=red");
                 translationList.Add("warp_near_loc_null", "Warp location not found. Color=red");
-                translationList.Add("warp_protect_active", "Player is under warp protection and cannot be damaged. Color=red");
+                translationList.Add("warp_protect_active", "Player is under warp protection for [{0}] more seconds and cannot be damaged. Color=red");
                 translationList.Add("warp_protect_expired", "Your warp protection has expired. Color=yellow");
+                translationList.Add("warp_protect_removed_by_shooting", "Warp protection removed due to attack. Color=red");
                 return translationList;
             }
         }
@@ -71,6 +73,7 @@ namespace AdvancedWarps.Core
             Instance = this;
             Warping = new List<CSteamID>();
             _warpProtect = new Dictionary<CSteamID, DateTime>();
+            _lastProtectMessage = new Dictionary<CSteamID, DateTime>();
             if (Configuration.Instance.DownloadWorkshop)
             {
                 var workshopConfig = WorkshopDownloadConfig.getOrLoad();
@@ -88,6 +91,7 @@ namespace AdvancedWarps.Core
             StructureManager.onDeployStructureRequested = (DeployStructureRequestHandler)Delegate.Combine(StructureManager.onDeployStructureRequested, new DeployStructureRequestHandler(OnDeployStructureRequested));
             DamageTool.damagePlayerRequested += DamageToolOnDamagePlayerRequested;
             EffectManager.onEffectButtonClicked += OnEffectButtonClicked;
+            UseableThrowable.onThrowableSpawned += OnThrowableSpawned;
         }
 
         protected override void Unload()
@@ -95,6 +99,7 @@ namespace AdvancedWarps.Core
             U.Events.OnPlayerDisconnected -= EventsOnPlayerDisconnected;
             UnturnedPlayerEvents.OnPlayerDeath -= OnPlayerDeath;
             UnturnedPlayerEvents.OnPlayerUpdateGesture -= OnPlayerUpdateGesture;
+            UseableThrowable.onThrowableSpawned -= OnThrowableSpawned;
             BarricadeManager.onDeployBarricadeRequested = (DeployBarricadeRequestHandler)Delegate.Remove(BarricadeManager.onDeployBarricadeRequested, new DeployBarricadeRequestHandler(OnDeployBarricadeRequested));
             StructureManager.onDeployStructureRequested = (DeployStructureRequestHandler)Delegate.Remove(StructureManager.onDeployStructureRequested, new DeployStructureRequestHandler(OnDeployStructureRequested));
             DamageTool.damagePlayerRequested -= DamageToolOnDamagePlayerRequested;
@@ -173,12 +178,60 @@ namespace AdvancedWarps.Core
                 unturnedPlayer.Player.setPluginWidgetFlag(EPluginWidgetFlags.Modal, false);
             }
         }
+
+        private void FixedUpdate()
+        {
+            // Проверяем истечение времени WarpProtect
+            List<CSteamID> toRemove = new List<CSteamID>();
+            foreach (var pair in _warpProtect)
+            {
+                if (pair.Value <= DateTime.Now)
+                {
+                    toRemove.Add(pair.Key);
+                }
+            }
+
+            foreach (var playerId in toRemove)
+            {
+                RemoveWarpProtect(playerId, false); // false, чтобы отправить warp_protect_expired
+            }
+        }
+
+        private void OnThrowableSpawned(UseableThrowable throwable, GameObject projectile)
+        {
+            if (throwable == null || throwable.player == null)
+                return;
+
+            var player = UnturnedPlayer.FromPlayer(throwable.player);
+            if (player == null)
+                return;
+
+            var component = player.GetComponent<PlayerComponent>();
+            if (component == null)
+                return;
+
+            // Снимаем защиту, если она активна
+            if (_warpProtect.ContainsKey(player.CSteamID))
+            {
+                RemoveWarpProtect(player.CSteamID, true);
+            }
+
+            // Отменяем телепорт при включённой опции
+            if (component.IsTeleporting && Configuration.Instance.CancelOnShooting)
+            {
+                component.CancelTeleport("warp_cancel_throwable");
+            }
+        }
+
         private void OnPlayerUpdateGesture(UnturnedPlayer player, PlayerGesture gesture)
         {
             if (gesture != PlayerGesture.PunchLeft && gesture != PlayerGesture.PunchRight) return;
             if (Plugin.Instance == null) return;
 
-            Plugin.Instance.RemoveWarpProtect(player.CSteamID);
+            if (_warpProtect.ContainsKey(player.CSteamID))
+            {
+                RemoveWarpProtect(player.CSteamID, true); // true, чтобы отправить warp_protect_removed_by_shooting
+            }
 
             PlayerComponent component = player.GetComponent<PlayerComponent>();
             if (component != null && component.IsTeleporting && Configuration.Instance.CancelOnShooting)
@@ -260,12 +313,18 @@ namespace AdvancedWarps.Core
             if (shouldAllow && _warpProtect.ContainsKey(steamID) && _warpProtect[steamID] > DateTime.Now)
             {
                 shouldAllow = false;
+                if (!_lastProtectMessage.ContainsKey(steamID) || (DateTime.Now - _lastProtectMessage[steamID]).TotalSeconds >= 1)
+                {
+                    UnturnedPlayer attacker = UnturnedPlayer.FromCSteamID(parameters.killer);
+                    if (attacker != null)
+                    {
+                        double remainingSeconds = (_warpProtect[steamID] - DateTime.Now).TotalSeconds;
+                        int roundedSeconds = (int)Math.Round(remainingSeconds);
+                        new Transelation("warp_protect_active", new object[] { roundedSeconds }).execute(attacker);
+                    }
+                    _lastProtectMessage[steamID] = DateTime.Now;
+                }
             }
-
-            //if (shouldAllow && component != null && component.IsTeleporting && parameters.player.life.health - parameters.damage <= 0)
-            //{
-            //    component.CancelTeleport("warp_cancel_death");
-            //}
         }
 
         //private void OnTriggerSend(SteamPlayer player, string s, ESteamCall mode, ESteamPacket type, object[] arguments)
@@ -281,28 +340,36 @@ namespace AdvancedWarps.Core
         //        _warpProtect.Remove(player.playerID.steamID);
         //    }
         //}
-        private void OnUseableUsed(PlayerEquipment equipment, Useable useable)
-        {
-            var player = UnturnedPlayer.FromPlayer(equipment.player);
-            if (player == null) return;
+        //private void OnUseableUsed(PlayerEquipment equipment, Useable useable)
+        //{
+        //    var player = UnturnedPlayer.FromPlayer(equipment.player);
+        //    if (player == null) return;
 
-            // Проверяем, является ли используемый предмет оружием
-            if (equipment.asset is ItemWeaponAsset)
-            {
-                if (_warpProtect.ContainsKey(player.CSteamID))
-                {
-                    _warpProtect.Remove(player.CSteamID);
-                }
-            }
-        }
+        //    // Проверяем, является ли используемый предмет оружием
+        //    if (equipment.asset is ItemWeaponAsset)
+        //    {
+        //        if (_warpProtect.ContainsKey(player.CSteamID))
+        //        {
+        //            _warpProtect.Remove(player.CSteamID);
+        //        }
+        //    }
+        //}
 
-        public void RemoveWarpProtect(CSteamID playerId)
+        public void RemoveWarpProtect(CSteamID playerId, bool byPlayerAction = false)
         {
             if (_warpProtect.ContainsKey(playerId))
             {
+                var player = UnturnedPlayer.FromCSteamID(playerId);
+                if (player != null)
+                {
+                    string key = byPlayerAction ? "warp_protect_removed_by_shooting" : "warp_protect_expired";
+                    new Transelation(key).execute(player);
+                }
                 _warpProtect.Remove(playerId);
+                _lastProtectMessage.Remove(playerId);
             }
         }
+
 
         public void AfterWarp(UnturnedPlayer player)
         {

@@ -76,10 +76,11 @@
   <ItemGroup>
     <Compile Include="Core\Configuration.cs" />
     <Compile Include="Commands\CommandWarp.cs" />
+    <Compile Include="Harmony\MeleePatch.cs" />
     <Compile Include="Utilities\KnownLocationsProvider.cs" />
     <Compile Include="Models\KnownLocation.cs" />
     <Compile Include="Core\PlayerComponent.cs" />
-    <Compile Include="Harmony\FirePatch.cs" />
+    <Compile Include="Harmony\GunPatch.cs" />
     <Compile Include="Utilities\Transelation.cs" />
     <Compile Include="Models\SerializableVector3.cs" />
     <Compile Include="Models\Warp.cs" />

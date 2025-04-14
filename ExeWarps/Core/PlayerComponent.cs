@@ -3,8 +3,7 @@ using SDG.Unturned;
 using UnityEngine;
 using System;
 using AdvancedWarps.Models;
-using AdvancedWarps.Commands;
-using AdvancedWarps.Harmony;
+using AdvancedWarps.Core;
 using AdvancedWarps.Utilities;
 
 namespace AdvancedWarps.Core
@@ -20,7 +19,7 @@ namespace AdvancedWarps.Core
         {
             if (!string.IsNullOrEmpty(messageKey))
             {
-                new Transelation(messageKey, Array.Empty<object>()).execute(base.Player);
+                new Transelation(messageKey).execute(base.Player);
             }
             Plugin.Instance.Warping.Remove(base.Player.CSteamID);
             CurrentWarp = null;
@@ -29,9 +28,10 @@ namespace AdvancedWarps.Core
 
         public void FixedUpdate()
         {
-            if (CurrentWarp == null || !IsTeleporting) return;
+            if (CurrentWarp == null || !IsTeleporting)
+                return;
 
-            // Check movement cancellation
+            // Отмена из-за движения
             if (Plugin.Instance.Configuration.Instance.CancelOnMovement)
             {
                 float distance = Vector3.Distance(base.Player.Position, (Vector3)InitialPosition);
@@ -42,16 +42,15 @@ namespace AdvancedWarps.Core
                 }
             }
 
-            // Check if teleport delay is over
+            // Завершение телепорта
             if ((DateTime.Now - TimeTeleportWarp).TotalSeconds >= Plugin.Instance.Configuration.Instance.DelayTeleportToWarp)
             {
-                // Select a random sub-warp
                 if (CurrentWarp.SubWarps.Count > 0)
                 {
                     int randomIndex = UnityEngine.Random.Range(0, CurrentWarp.SubWarps.Count);
                     SubWarp subWarp = CurrentWarp.SubWarps[randomIndex];
                     base.Player.Teleport((Vector3)subWarp.Position, base.Player.Rotation);
-                    new Transelation("warp_successfully_teleported", Array.Empty<object>()).execute(base.Player);
+                    new Transelation("warp_successfully_teleported").execute(base.Player);
                     Plugin.Instance.AfterWarp(base.Player);
                 }
                 CurrentWarp = null;

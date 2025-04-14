@@ -6,12 +6,12 @@ using AdvancedWarps.Utilities;
 
 namespace AdvancedWarps.Harmony
 {
-    [HarmonyPatch(typeof(UseableMelee), "fire")]
-    public class MeleePatch
+    [HarmonyPatch(typeof(UseableGun), "fire")]
+    public class GunPatch
     {
-        static void Prefix(UseableMelee __instance)
+        static void Prefix(UseableGun __instance)
         {
-            if (__instance.player == null) return;
+            if (__instance == null || __instance.player == null) return;
 
             var player = UnturnedPlayer.FromPlayer(__instance.player);
             if (player == null) return;
@@ -27,7 +27,7 @@ namespace AdvancedWarps.Harmony
             // Отменяем телепорт при включённой настройке
             if (component != null && component.IsTeleporting && Plugin.Instance.Configuration.Instance.CancelOnShooting)
             {
-                component.CancelTeleport("warp_cancel_melee");
+                component.CancelTeleport("warp_cancel_shooting");
             }
         }
     }

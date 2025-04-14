@@ -452,8 +452,7 @@ using SDG.Unturned;
 using UnityEngine;
 using System;
 using AdvancedWarps.Models;
-using AdvancedWarps.Commands;
-using AdvancedWarps.Harmony;
+using AdvancedWarps.Core;
 using AdvancedWarps.Utilities;
 
 namespace AdvancedWarps.Core
@@ -469,7 +468,7 @@ namespace AdvancedWarps.Core
         {
             if (!string.IsNullOrEmpty(messageKey))
             {
-                new Transelation(messageKey, Array.Empty<object>()).execute(base.Player);
+                new Transelation(messageKey).execute(base.Player);
             }
             Plugin.Instance.Warping.Remove(base.Player.CSteamID);
             CurrentWarp = null;
@@ -478,37 +477,48 @@ namespace AdvancedWarps.Core
 
         public void FixedUpdate()
         {
-            if (CurrentWarp == null || !IsTeleporting) return;
-
-            // Check movement cancellation
-            if (Plugin.Instance.Configuration.Instance.CancelOnMovement)
+            if (CurrentWarp == null || !IsTeleporting) { }
+            else
             {
-                float distance = Vector3.Distance(base.Player.Position, (Vector3)InitialPosition);
-                if (distance > Plugin.Instance.Configuration.Instance.MovementCancelRadius)
+                // Отмена из-за движения
+                if (Plugin.Instance.Configuration.Instance.CancelOnMovement)
                 {
-                    CancelTeleport("warp_cancel_movement");
-                    return;
+                    float distance = Vector3.Distance(base.Player.Position, (Vector3)InitialPosition);
+                    if (distance > Plugin.Instance.Configuration.Instance.MovementCancelRadius)
+                    {
+                        CancelTeleport("warp_cancel_movement");
+                        return;
+                    }
+                }
+
+                // Завершение телепорта
+                if ((DateTime.Now - TimeTeleportWarp).TotalSeconds >= Plugin.Instance.Configuration.Instance.DelayTeleportToWarp)
+                {
+                    if (CurrentWarp.SubWarps.Count > 0)
+                    {
+                        int randomIndex = UnityEngine.Random.Range(0, CurrentWarp.SubWarps.Count);
+                        SubWarp subWarp = CurrentWarp.SubWarps[randomIndex];
+                        base.Player.Teleport((Vector3)subWarp.Position, base.Player.Rotation);
+                        new Transelation("warp_successfully_teleported").execute(base.Player);
+                        Plugin.Instance.AfterWarp(base.Player);
+                    }
+                    CurrentWarp = null;
+                    IsTeleporting = false;
                 }
             }
 
-            // Check if teleport delay is over
-            if ((DateTime.Now - TimeTeleportWarp).TotalSeconds >= Plugin.Instance.Configuration.Instance.DelayTeleportToWarp)
+            // Снятие защиты по времени
+            if (Plugin.Instance._warpProtect.TryGetValue(base.Player.CSteamID, out DateTime protectEnd))
             {
-                // Select a random sub-warp
-                if (CurrentWarp.SubWarps.Count > 0)
+                if (DateTime.Now >= protectEnd)
                 {
-                    int randomIndex = UnityEngine.Random.Range(0, CurrentWarp.SubWarps.Count);
-                    SubWarp subWarp = CurrentWarp.SubWarps[randomIndex];
-                    base.Player.Teleport((Vector3)subWarp.Position, base.Player.Rotation);
-                    new Transelation("warp_successfully_teleported", Array.Empty<object>()).execute(base.Player);
-                    Plugin.Instance.AfterWarp(base.Player);
+                    Plugin.Instance.RemoveWarpProtect(base.Player.CSteamID, false);
                 }
-                CurrentWarp = null;
-                IsTeleporting = false;
             }
         }
     }
 }
+
 
 --- D:\Desktop files--------------------\----\Unturned----------\Сервер\PLG\MY\Joskiye ne moi\ExeWarps\ExeWarps net 4.5\ExeWarps\Core\Plugin.cs ---
 ﻿using System;
@@ -535,7 +545,8 @@ namespace AdvancedWarps.Core
     {
         public static Plugin Instance;
         public List<CSteamID> Warping;
-        private Dictionary<CSteamID, DateTime> _warpProtect;
+        internal Dictionary<CSteamID, DateTime> _warpProtect;
+        private Dictionary<CSteamID, DateTime> _lastProtectMessage;
 
         public override TranslationList DefaultTranslations
         {
@@ -573,8 +584,9 @@ namespace AdvancedWarps.Core
                 translationList.Add("admin_warp_list_header", "Admin warps: Color=cyan");
                 translationList.Add("warp_already_at_location", "A warp already exists at location [{0}]! Color=red");
                 translationList.Add("warp_near_loc_null", "Warp location not found. Color=red");
-                translationList.Add("warp_protect_active", "Player is under warp protection and cannot be damaged. Color=red");
+                translationList.Add("warp_protect_active", "Player is under warp protection for [{0}] more seconds and cannot be damaged. Color=red");
                 translationList.Add("warp_protect_expired", "Your warp protection has expired. Color=yellow");
+                translationList.Add("warp_protect_removed_by_shooting", "Warp protection removed due to attack. Color=red");
                 return translationList;
             }
         }
@@ -584,6 +596,7 @@ namespace AdvancedWarps.Core
             Instance = this;
             Warping = new List<CSteamID>();
             _warpProtect = new Dictionary<CSteamID, DateTime>();
+            _lastProtectMessage = new Dictionary<CSteamID, DateTime>();
             if (Configuration.Instance.DownloadWorkshop)
             {
                 var workshopConfig = WorkshopDownloadConfig.getOrLoad();
@@ -773,12 +786,21 @@ namespace AdvancedWarps.Core
             if (shouldAllow && _warpProtect.ContainsKey(steamID) && _warpProtect[steamID] > DateTime.Now)
             {
                 shouldAllow = false;
+                // Send protection message with remaining time and rate limiting
+                if (!_lastProtectMessage.ContainsKey(steamID) || (DateTime.Now - _lastProtectMessage[steamID]).TotalSeconds >= 1)
+                {
+                    UnturnedPlayer attacker = UnturnedPlayer.FromCSteamID(parameters.killer);
+                    if (attacker != null)
+                    {
+                        // Calculate remaining time in seconds
+                        double remainingSeconds = (_warpProtect[steamID] - DateTime.Now).TotalSeconds;
+                        // Round to nearest second for readability
+                        int roundedSeconds = (int)Math.Round(remainingSeconds);
+                        new Transelation("warp_protect_active", new object[] { roundedSeconds }).execute(attacker);
+                    }
+                    _lastProtectMessage[steamID] = DateTime.Now;
+                }
             }
-
-            //if (shouldAllow && component != null && component.IsTeleporting && parameters.player.life.health - parameters.damage <= 0)
-            //{
-            //    component.CancelTeleport("warp_cancel_death");
-            //}
         }
 
         //private void OnTriggerSend(SteamPlayer player, string s, ESteamCall mode, ESteamPacket type, object[] arguments)
@@ -794,28 +816,36 @@ namespace AdvancedWarps.Core
         //        _warpProtect.Remove(player.playerID.steamID);
         //    }
         //}
-        private void OnUseableUsed(PlayerEquipment equipment, Useable useable)
-        {
-            var player = UnturnedPlayer.FromPlayer(equipment.player);
-            if (player == null) return;
+        //private void OnUseableUsed(PlayerEquipment equipment, Useable useable)
+        //{
+        //    var player = UnturnedPlayer.FromPlayer(equipment.player);
+        //    if (player == null) return;
 
-            // Проверяем, является ли используемый предмет оружием
-            if (equipment.asset is ItemWeaponAsset)
-            {
-                if (_warpProtect.ContainsKey(player.CSteamID))
-                {
-                    _warpProtect.Remove(player.CSteamID);
-                }
-            }
-        }
+        //    // Проверяем, является ли используемый предмет оружием
+        //    if (equipment.asset is ItemWeaponAsset)
+        //    {
+        //        if (_warpProtect.ContainsKey(player.CSteamID))
+        //        {
+        //            _warpProtect.Remove(player.CSteamID);
+        //        }
+        //    }
+        //}
 
-        public void RemoveWarpProtect(CSteamID playerId)
+        public void RemoveWarpProtect(CSteamID playerId, bool byPlayerAction = false)
         {
             if (_warpProtect.ContainsKey(playerId))
             {
+                var player = UnturnedPlayer.FromCSteamID(playerId);
+                if (player != null)
+                {
+                    string key = byPlayerAction ? "warp_protect_removed_by_shooting" : "warp_protect_expired";
+                    new Transelation(key, Array.Empty<object>()).execute(player);
+                }
                 _warpProtect.Remove(playerId);
+                _lastProtectMessage.Remove(playerId);
             }
         }
+
 
         public void AfterWarp(UnturnedPlayer player)
         {
@@ -825,66 +855,38 @@ namespace AdvancedWarps.Core
     }
 }
 
---- D:\Desktop files--------------------\----\Unturned----------\Сервер\PLG\MY\Joskiye ne moi\ExeWarps\ExeWarps net 4.5\ExeWarps\Harmony\FirePatch.cs ---
+--- D:\Desktop files--------------------\----\Unturned----------\Сервер\PLG\MY\Joskiye ne moi\ExeWarps\ExeWarps net 4.5\ExeWarps\Harmony\GunPatch.cs ---
 ﻿using HarmonyLib;
 using Rocket.Unturned.Player;
 using SDG.Unturned;
 using AdvancedWarps.Core;
-using AdvancedWarps.Utilities;
-using System;
 
 namespace AdvancedWarps.Harmony
 {
-    [HarmonyPatch(typeof(PlayerEquipment), "use")]
-    public class EquipmentUsePatch
+    [HarmonyPatch(typeof(UseableGun), "shoot")]
+    public class GunPatch
     {
-        static void Prefix(PlayerEquipment __instance)
+        static void Prefix(UseableGun __instance)
         {
-            // Проверяем наличие игрока и используемого предмета
-            if (__instance?.player == null || __instance.useable == null)
-                return;
+            if (__instance == null || __instance.player == null) return;
 
-            // Получаем Rocket-объект игрока
-            UnturnedPlayer player = UnturnedPlayer.FromPlayer(__instance.player);
-            if (player == null)
-                return;
+            var player = UnturnedPlayer.FromPlayer(__instance.player);
+            if (player == null) return;
 
-            // Получаем компонент игрока
-            PlayerComponent component = player.GetComponent<PlayerComponent>();
-            if (component == null)
-                return;
+            var component = player.GetComponent<PlayerComponent>();
 
-            // Определяем тип используемого предмета и соответствующий ключ перевода
-            string translationKey = null;
-            if (__instance.useable is UseableGun)
+            // Снимаем защиту
+            Plugin.Instance.RemoveWarpProtect(player.CSteamID, true);
+
+            // Отменяем телепорт при включённой настройке
+            if (component != null && component.IsTeleporting && Plugin.Instance.Configuration.Instance.CancelOnShooting)
             {
-                translationKey = "warp_cancel_shooting";
-            }
-            else if (__instance.useable is UseableThrowable)
-            {
-                translationKey = "warp_cancel_throwable";
-            }
-            else if (__instance.useable is UseableMelee)
-            {
-                translationKey = "warp_cancel_melee";
-            }
-
-            // Если предмет подпадает под одну из категорий
-            if (translationKey != null)
-            {
-                // Снимаем защиту от варпа
-                Plugin.Instance.RemoveWarpProtect(player.CSteamID);
-
-                // Отменяем телепортацию, если она активна и включена опция CancelOnShooting
-                if (component.IsTeleporting && Plugin.Instance.Configuration.Instance.CancelOnShooting)
-                {
-                    new Transelation(translationKey, Array.Empty<object>()).execute(player);
-                    component.CancelTeleport(null); // Сообщение уже отправлено через Transelation
-                }
+                component.CancelTeleport("warp_cancel_shooting");
             }
         }
     }
 }
+
 
 --- D:\Desktop files--------------------\----\Unturned----------\Сервер\PLG\MY\Joskiye ne moi\ExeWarps\ExeWarps net 4.5\ExeWarps\Harmony\MeleePatch.cs ---
 ﻿using HarmonyLib;
@@ -913,59 +915,40 @@ namespace AdvancedWarps.Harmony
     }
 }
 
---- D:\Desktop files--------------------\----\Unturned----------\Сервер\PLG\MY\Joskiye ne moi\ExeWarps\ExeWarps net 4.5\ExeWarps\Harmony\PunchPatch.cs ---
-﻿using HarmonyLib;
-using Rocket.Unturned.Player;
-using SDG.Unturned;
-using AdvancedWarps.Core;
-using AdvancedWarps.Models;
-using AdvancedWarps.Commands;
-using AdvancedWarps.Utilities;
-
-namespace AdvancedWarps.Harmony
-{
-    [HarmonyPatch(typeof(PlayerStance), "punch")]
-    public class PunchPatch
-    {
-        static void Prefix(PlayerStance __instance, EPlayerPunch punch)
-        {
-            if (__instance.player == null) return;
-
-            var player = __instance.player;
-            var unturnedPlayer = UnturnedPlayer.FromPlayer(player);
-
-            // Снятие WarpProtect при ударе кулаком
-            Plugin.Instance.RemoveWarpProtect(unturnedPlayer.CSteamID);
-        }
-    }
-}
-
 --- D:\Desktop files--------------------\----\Unturned----------\Сервер\PLG\MY\Joskiye ne moi\ExeWarps\ExeWarps net 4.5\ExeWarps\Harmony\ThrowablePatch.cs ---
 ﻿using HarmonyLib;
 using Rocket.Unturned.Player;
 using SDG.Unturned;
 using AdvancedWarps.Core;
-using AdvancedWarps.Models;
-using AdvancedWarps.Commands;
-using AdvancedWarps.Utilities;
 
 namespace AdvancedWarps.Harmony
 {
-    [HarmonyPatch(typeof(UseableThrowable), "fire")]
+    [HarmonyPatch(typeof(UseableThrowable), "throwItem")]
     public class ThrowablePatch
     {
         static void Prefix(UseableThrowable __instance)
         {
-            if (__instance.player == null) return;
+            if (__instance == null || __instance.player == null)
+                return;
 
-            var player = __instance.player;
-            var unturnedPlayer = UnturnedPlayer.FromPlayer(player);
+            var player = UnturnedPlayer.FromPlayer(__instance.player);
+            if (player == null)
+                return;
 
-            // Снятие WarpProtect при броске (гранаты, ракеты и т.д.)
-            Plugin.Instance.RemoveWarpProtect(unturnedPlayer.CSteamID);
+            var component = player.GetComponent<PlayerComponent>();
+
+            // Снимаем защиту
+            Plugin.Instance.RemoveWarpProtect(player.CSteamID, true);
+
+            // Отменяем телепорт при включённой опции
+            if (component != null && component.IsTeleporting && Plugin.Instance.Configuration.Instance.CancelOnShooting)
+            {
+                component.CancelTeleport("warp_cancel_throwable");
+            }
         }
     }
 }
+
 
 --- D:\Desktop files--------------------\----\Unturned----------\Сервер\PLG\MY\Joskiye ne moi\ExeWarps\ExeWarps net 4.5\ExeWarps\Models\KnownLocation.cs ---
 ﻿using System.Collections.Generic;
